@@ -1,10 +1,15 @@
-export function createNewBot(botHandler) {
+export function createNewBot(bots, botHandler, version) {
   // Function to track for latest order list, set to every 100ms
   const trackOrderList = () => {
     var updatedPendingOrders = JSON.parse(window.sessionStorage.getItem('pending_orders')) || [];
 
+    const existNewerBot = bots.findIndex(bot => bot.version > version);
+    const newerIdleBot = bots.findIndex(bot => bot.version > version && bot.status === 'Idle');
+
+    const toProcess = newerIdleBot === -1 || existNewerBot === -1;
+
     // Only pickup and process order when bot is idle
-    if (updatedPendingOrders.length > 0 && bot.status === 'Idle') {
+    if (updatedPendingOrders.length > 0 && bot.status === 'Idle' && toProcess) {
       // Bot always picking up the first order
       const firstOrder = updatedPendingOrders[0];
 
@@ -17,6 +22,8 @@ export function createNewBot(botHandler) {
       // Update it back to the sessionStorage
       window.sessionStorage.setItem('pending_orders', JSON.stringify(updatedPendingOrders));
       window.dispatchEvent(new Event('storage'));
+
+      const processingSpeed = version === 2 ? 5 : 10;
 
       // Each order required 10 seconds to complete process
       const timeoutId = setTimeout(() => {
@@ -41,7 +48,7 @@ export function createNewBot(botHandler) {
 
           return [...prevBots];
         });
-      }, 10000);
+      }, processingSpeed * 1000);
 
       // Update bot state with timeoutId for destroy purpose
       bot.timeoutId = timeoutId;
@@ -62,6 +69,7 @@ export function createNewBot(botHandler) {
 
   const bot = {
     id: botId,
+    version: version,
     status: 'Idle',
     processing: {},
     intervalId: setInterval(trackOrderList, 100),

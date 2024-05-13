@@ -42,12 +42,12 @@ function App() {
     };
   }, []);
 
-  const processCreateOrder = (type) => {
-    createNewOrder(type);
+  const processCreateOrder = (type, level) => {
+    createNewOrder(type, level);
   }
 
-  const processCreateBot = () => {
-    createNewBot(setBots);
+  const processCreateBot = (version) => {
+    createNewBot(bots, setBots, version);
   }
 
   const processDeleteBot = () => {
@@ -61,10 +61,13 @@ function App() {
       </h2>
 
       <div className='section'>
-        <OrderButton type='Normal' handler={() => processCreateOrder('Normal')} />
-        <OrderButton type='VIP' handler={() => processCreateOrder('VIP')} />
+        <OrderButton type='Normal' handler={() => processCreateOrder('Normal', 0)} />
+        <OrderButton type='VIP' handler={() => processCreateOrder('VIP', 1)} />
+        <OrderButton type='VIP' handler={() => processCreateOrder('VIP', 2)} />
+        <OrderButton type='VIP' handler={() => processCreateOrder('VIP', 3)} />
 
-        <BotButton type='+' handler={() => processCreateBot()} />
+        <BotButton type='+' handler={() => processCreateBot(1)} />
+        <BotButton type='+' handler={() => processCreateBot(2)} />
         <BotButton type='-' handler={() => processDeleteBot()} />
       </div>
 

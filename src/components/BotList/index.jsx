@@ -7,9 +7,10 @@ const BotList = (props) => {
   return (
     <div className='bot-list'>
       {
-        bots.map(({ id, status, processing }) => (
+        bots.map(({ id, version, status, processing }) => (
           <div key={`bot-${id}`} className='bot'>
             <span>ID: { id }</span>
+            <span>Version: { version }</span>
             <span>Status: { status }</span>
             <span>Processing order: { processing.id && `${processing.id} (${processing.type})` || '-' }</span>
           </div>

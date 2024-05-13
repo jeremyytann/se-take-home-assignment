@@ -12,9 +12,9 @@ const OrderList = (props) => {
 
       <div className='orders'>
         {
-          orders.map(({ id, type }) => (
+          orders.map(({ id, type, level }) => (
             <span key={`order-${id}`}>
-              {id} ({type})
+              {id} ({type} {level})
             </span>
           ))
         }
