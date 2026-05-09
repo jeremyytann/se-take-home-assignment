@@ -60,5 +60,5 @@ You must implement **either** frontend or backend components as described below:
 
 ### Tips on completing this task
 - Testing, testing and testing. Make sure the prototype is functioning and meeting all the requirements.
-- Treat this assignment as a vibe coding, don't over engineer it. Try to scope your working hour within 30 min. However, ensure you read and understand what your code doing.
+- Utilize coding agent to complete the assignment scope your working hour within 1 hour, do not over engineer it. However, ensure you read and understand what your code doing and apply good engineering practice.
 - Complete the implementation as clean as possible, clean code is a strong plus point, do not bring in all the fancy tech stuff.
