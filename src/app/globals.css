@@ -538,6 +538,43 @@ h1 {
   font-size: 13px;
 }
 
+.customer-type-badge,
+.order-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 7px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.customer-type-badge.vip {
+  border-color: #d7a200;
+  background: #fff3bd;
+  color: #6d5200;
+}
+
+.customer-type-badge.normal {
+  background: var(--surface-muted);
+}
+
+.order-status-badge.pending {
+  border-color: #d7a200;
+  background: #fff3bd;
+  color: #6d5200;
+}
+
+.order-status-badge.complete {
+  border-color: #35b86f;
+  background: var(--green-soft);
+  color: #17653a;
+}
+
 .complete-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(145px, 1fr));

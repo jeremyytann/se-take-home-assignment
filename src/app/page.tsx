@@ -45,6 +45,24 @@ function formatCustomerType(customerType: CustomerType): string {
   return customerType === CustomerType.Vip ? "VIP" : "Normal";
 }
 
+function CustomerTypeBadge({ customerType }: { customerType: CustomerType }) {
+  const isVip = customerType === CustomerType.Vip;
+
+  return (
+    <span className={`customer-type-badge ${isVip ? "vip" : "normal"}`}>
+      {formatCustomerType(customerType)}
+    </span>
+  );
+}
+
+function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  return (
+    <span className={`order-status-badge ${status.toLowerCase()}`}>
+      {formatOrderStatus(status)}
+    </span>
+  );
+}
+
 function formatOrderStatus(status: BotStatus | OrderStatus): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
@@ -435,10 +453,11 @@ export default function OrdersPage() {
                   <strong>#{formatOrderId(order.id)}</strong>
                   <div className="order-meta">
                     <span>
-                      Type <b>{formatCustomerType(order.customerType)}</b>
+                      Type{" "}
+                      <CustomerTypeBadge customerType={order.customerType} />
                     </span>
                     <span>
-                      Status <b>{formatOrderStatus(order.status)}</b>
+                      Status <OrderStatusBadge status={order.status} />
                     </span>
                   </div>
                 </article>
@@ -481,10 +500,11 @@ export default function OrdersPage() {
                   <strong>#{formatOrderId(order.id)}</strong>
                   <div className="order-meta">
                     <span>
-                      Type <b>{formatCustomerType(order.customerType)}</b>
+                      Type{" "}
+                      <CustomerTypeBadge customerType={order.customerType} />
                     </span>
                     <span>
-                      Status <b>{formatOrderStatus(order.status)}</b>
+                      Status <OrderStatusBadge status={order.status} />
                     </span>
                   </div>
                 </article>
