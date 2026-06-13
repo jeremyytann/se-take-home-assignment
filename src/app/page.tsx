@@ -342,7 +342,7 @@ export default function OrdersPage() {
   return (
     <main className="controller-page">
       <section className="controls-section" aria-labelledby="controller-title">
-        <div>
+        <div className="order-controls">
           <h1 id="controller-title">Order Controller</h1>
           <div className="order-actions" aria-label="Order controls">
             <button

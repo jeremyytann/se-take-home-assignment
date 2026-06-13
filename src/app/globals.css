@@ -695,6 +695,10 @@ h1 {
     gap: 10px;
   }
 
+  .order-controls {
+    width: 100%;
+  }
+
   h1 {
     margin-bottom: 10px;
     font-size: 30px;
