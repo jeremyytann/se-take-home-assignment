@@ -12,113 +12,11 @@ import {
   removeNewestBot,
   type Bot,
   type BotsByStatus,
-  type CompleteOrder,
   type OrdersByStatus,
   type PendingOrder
 } from "@/domain";
 
-const pendingOrders: PendingOrder[] = [
-  {
-    id: 29,
-    customerType: CustomerType.Vip,
-    status: OrderStatus.Pending,
-    createdAt: 29
-  },
-  {
-    id: 30,
-    customerType: CustomerType.Vip,
-    status: OrderStatus.Pending,
-    createdAt: 30
-  },
-  {
-    id: 31,
-    customerType: CustomerType.Vip,
-    status: OrderStatus.Pending,
-    createdAt: 31
-  },
-  {
-    id: 8,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 8
-  },
-  {
-    id: 9,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 9
-  },
-  {
-    id: 10,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 10
-  },
-  {
-    id: 11,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 11
-  },
-  {
-    id: 12,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 12
-  },
-  {
-    id: 13,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 13
-  },
-  {
-    id: 14,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 14
-  },
-  {
-    id: 15,
-    customerType: CustomerType.Normal,
-    status: OrderStatus.Pending,
-    createdAt: 15
-  }
-];
-
-function completeOrder(
-  id: number,
-  customerType: CustomerType,
-  botId: number
-): CompleteOrder {
-  return {
-    id,
-    customerType,
-    status: OrderStatus.Complete,
-    createdAt: id,
-    pickedUpAt: id + 1_000,
-    completedAt: id + 11_000,
-    botId
-  };
-}
-
-const completedOrders: CompleteOrder[] = [
-  completeOrder(24, CustomerType.Vip, 1),
-  completeOrder(23, CustomerType.Vip, 2),
-  completeOrder(22, CustomerType.Vip, 3),
-  completeOrder(21, CustomerType.Vip, 4),
-  completeOrder(20, CustomerType.Vip, 1),
-  completeOrder(19, CustomerType.Vip, 2),
-  completeOrder(18, CustomerType.Vip, 3),
-  completeOrder(17, CustomerType.Vip, 4),
-  completeOrder(16, CustomerType.Vip, 1),
-  completeOrder(7, CustomerType.Normal, 2),
-  completeOrder(6, CustomerType.Normal, 3),
-  completeOrder(5, CustomerType.Normal, 4),
-  completeOrder(4, CustomerType.Normal, 1),
-  completeOrder(3, CustomerType.Normal, 2),
-  completeOrder(2, CustomerType.Normal, 3)
-];
+const INITIAL_ORDER_ID = 1;
 
 type OrdersPageState = {
   bots: BotsByStatus;
@@ -149,15 +47,6 @@ function formatCustomerType(customerType: CustomerType): string {
 
 function formatOrderStatus(status: BotStatus | OrderStatus): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
-}
-
-function getInitialNextOrderId(): number {
-  return (
-    Math.max(
-      ...pendingOrders.map((order) => order.id),
-      ...completedOrders.map((order) => order.id)
-    ) + 1
-  );
 }
 
 function formatRemainingTime(completesAt: number, currentTime: number): string {
@@ -247,11 +136,11 @@ export default function OrdersPage() {
   const [orderState, setOrderState] = useState<OrdersPageState>(() => ({
     bots: emptyBots(),
     orders: {
-      [OrderStatus.Pending]: pendingOrders,
+      [OrderStatus.Pending]: [],
       [OrderStatus.Processing]: [],
-      [OrderStatus.Complete]: completedOrders
+      [OrderStatus.Complete]: []
     },
-    nextOrderId: getInitialNextOrderId(),
+    nextOrderId: INITIAL_ORDER_ID,
     nextBotId: 1,
     currentTime: Date.now()
   }));
