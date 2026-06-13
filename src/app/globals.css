@@ -160,6 +160,11 @@ h1 {
   outline-offset: 3px;
 }
 
+.control-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .normal-order {
   min-width: 280px;
   background: #efeee8;
@@ -299,6 +304,16 @@ h1 {
   font-size: 12px;
 }
 
+.status-badge.idle {
+  border: 1px solid #b7aa8b;
+  background: #f4f2ea;
+  color: #4f4939;
+}
+
+.status-badge.processing {
+  background: #f3bd20;
+}
+
 .bot-work {
   display: grid;
   gap: 4px;
@@ -325,6 +340,10 @@ h1 {
   line-height: 1;
 }
 
+.idle-work strong {
+  color: #59513e;
+}
+
 .bot-work .icon {
   width: 30px;
   height: 30px;
@@ -348,8 +367,27 @@ h1 {
   background: #bf0909;
 }
 
+.progress-track.idle span {
+  width: 100%;
+  background: #aaa18a;
+}
+
 .bot-card p {
   font-size: 13px;
+}
+
+.bot-card.idle {
+  border-color: #b7aa8b;
+}
+
+.empty-bot-list {
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: #fbfaf5;
+  padding: 28px;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .order-columns {

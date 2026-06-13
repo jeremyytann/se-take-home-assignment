@@ -1,47 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
+  assignPendingOrdersToIdleBots,
+  BotStatus,
   CustomerType,
   OrderStatus,
+  completeProcessingOrders,
   enqueuePendingOrder,
+  removeNewestBot,
+  type Bot,
+  type BotsByStatus,
   type CompleteOrder,
+  type OrdersByStatus,
   type PendingOrder
 } from "@/domain";
-
-type BotCard = {
-  botId: string;
-  orderId: number;
-  remaining: string;
-  progress: number;
-  vip: boolean;
-};
-
-const bots: BotCard[] = [
-  {
-    botId: "BOT-01",
-    orderId: 25,
-    remaining: "5s",
-    progress: 50,
-    vip: true
-  },
-  {
-    botId: "BOT-02",
-    orderId: 26,
-    remaining: "10s",
-    progress: 0,
-    vip: true
-  },
-  {
-    botId: "BOT-03",
-    orderId: 27,
-    remaining: "10s",
-    progress: 0,
-    vip: true
-  },
-  { botId: "BOT-04", orderId: 28, remaining: "10s", progress: 0, vip: true }
-];
 
 const pendingOrders: PendingOrder[] = [
   {
@@ -147,29 +121,69 @@ const completedOrders: CompleteOrder[] = [
 ];
 
 type OrdersPageState = {
-  pendingOrders: PendingOrder[];
+  bots: BotsByStatus;
+  orders: OrdersByStatus;
   nextOrderId: number;
+  nextBotId: number;
+  currentTime: number;
 };
+
+function emptyBots(): BotsByStatus {
+  return {
+    [BotStatus.Idle]: [],
+    [BotStatus.Processing]: []
+  };
+}
 
 function formatOrderId(orderId: number): string {
   return orderId.toString().padStart(4, "0");
+}
+
+function formatBotId(botId: number): string {
+  return `BOT-${botId.toString().padStart(2, "0")}`;
 }
 
 function formatCustomerType(customerType: CustomerType): string {
   return customerType === CustomerType.Vip ? "VIP" : "Normal";
 }
 
-function formatOrderStatus(status: OrderStatus): string {
+function formatOrderStatus(status: BotStatus | OrderStatus): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 function getInitialNextOrderId(): number {
   return (
     Math.max(
-      ...bots.map((bot) => bot.orderId),
       ...pendingOrders.map((order) => order.id),
       ...completedOrders.map((order) => order.id)
     ) + 1
+  );
+}
+
+function formatRemainingTime(completesAt: number, currentTime: number): string {
+  const remainingMs = Math.max(0, completesAt - currentTime);
+
+  if (remainingMs === 0) {
+    return "finishing";
+  }
+
+  return `${Math.ceil(remainingMs / 1_000)}s remaining`;
+}
+
+function getProgress(
+  pickedUpAt: number,
+  completesAt: number,
+  currentTime: number
+): number {
+  const duration = completesAt - pickedUpAt;
+
+  if (duration <= 0) {
+    return 100;
+  }
+
+  return Math.min(
+    100,
+    Math.max(0, ((currentTime - pickedUpAt) / duration) * 100)
   );
 }
 
@@ -230,22 +244,172 @@ function CheckIcon() {
 }
 
 export default function OrdersPage() {
-  const [{ pendingOrders: currentPendingOrders }, setOrderState] =
-    useState<OrdersPageState>(() => ({
-      pendingOrders,
-      nextOrderId: getInitialNextOrderId()
-    }));
+  const [orderState, setOrderState] = useState<OrdersPageState>(() => ({
+    bots: emptyBots(),
+    orders: {
+      [OrderStatus.Pending]: pendingOrders,
+      [OrderStatus.Processing]: [],
+      [OrderStatus.Complete]: completedOrders
+    },
+    nextOrderId: getInitialNextOrderId(),
+    nextBotId: 1,
+    currentTime: Date.now()
+  }));
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const completedAt = Date.now();
+
+      setOrderState((state) => ({
+        ...state,
+        ...completeProcessingOrders({
+          bots: state.bots,
+          orders: state.orders,
+          completedAt
+        }),
+        currentTime: completedAt
+      }));
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const botList = useMemo(
+    () =>
+      [
+        ...orderState.bots[BotStatus.Idle],
+        ...orderState.bots[BotStatus.Processing]
+      ].sort((firstBot, secondBot) => firstBot.id - secondBot.id),
+    [orderState.bots]
+  );
+
+  const processingOrdersById = useMemo(
+    () =>
+      new Map(
+        orderState.orders[OrderStatus.Processing].map((order) => [
+          order.id,
+          order
+        ])
+      ),
+    [orderState.orders]
+  );
+
+  const currentPendingOrders = orderState.orders[OrderStatus.Pending];
+  const currentCompletedOrders = orderState.orders[OrderStatus.Complete];
 
   function createOrder(customerType: CustomerType) {
+    const createdAt = Date.now();
+
+    setOrderState((state) => {
+      const orders: OrdersByStatus = {
+        ...state.orders,
+        [OrderStatus.Pending]: enqueuePendingOrder(
+          state.orders[OrderStatus.Pending],
+          {
+            id: state.nextOrderId,
+            customerType,
+            status: OrderStatus.Pending,
+            createdAt
+          }
+        )
+      };
+
+      return {
+        ...state,
+        ...assignPendingOrdersToIdleBots({
+          bots: state.bots,
+          orders,
+          pickedUpAt: createdAt
+        }),
+        nextOrderId: state.nextOrderId + 1,
+        currentTime: createdAt
+      };
+    });
+  }
+
+  function addBot() {
+    const createdAt = Date.now();
+
+    setOrderState((state) => {
+      const bots: BotsByStatus = {
+        ...state.bots,
+        [BotStatus.Idle]: [
+          ...state.bots[BotStatus.Idle],
+          {
+            id: state.nextBotId,
+            status: BotStatus.Idle,
+            createdAt
+          }
+        ]
+      };
+
+      return {
+        ...state,
+        ...assignPendingOrdersToIdleBots({
+          bots,
+          orders: state.orders,
+          pickedUpAt: createdAt
+        }),
+        nextBotId: state.nextBotId + 1,
+        currentTime: createdAt
+      };
+    });
+  }
+
+  function removeBot() {
+    const removedAt = Date.now();
+
     setOrderState((state) => ({
-      pendingOrders: enqueuePendingOrder(state.pendingOrders, {
-        id: state.nextOrderId,
-        customerType,
-        status: OrderStatus.Pending,
-        createdAt: Date.now()
+      ...state,
+      ...removeNewestBot({
+        bots: state.bots,
+        orders: state.orders
       }),
-      nextOrderId: state.nextOrderId + 1
+      currentTime: removedAt
     }));
+  }
+
+  function renderBotWork(bot: Bot) {
+    if (bot.status === BotStatus.Idle) {
+      return (
+        <>
+          <div className="bot-work idle-work">
+            <span>Waiting</span>
+            <strong>No order</strong>
+          </div>
+          <div className="progress-track idle" aria-hidden="true">
+            <span />
+          </div>
+          <p>Ready for the next order</p>
+        </>
+      );
+    }
+
+    const order = processingOrdersById.get(bot.orderId);
+
+    return (
+      <>
+        <div className="bot-work">
+          <span>Preparing</span>
+          <strong>
+            #{formatOrderId(bot.orderId)}
+            {order?.customerType === CustomerType.Vip ? <StarIcon /> : null}
+          </strong>
+        </div>
+        <div className="progress-track" aria-hidden="true">
+          <span
+            style={{
+              width: `${getProgress(
+                bot.pickedUpAt,
+                bot.completesAt,
+                orderState.currentTime
+              )}%`
+            }}
+          />
+        </div>
+        <p>{formatRemainingTime(bot.completesAt, orderState.currentTime)}</p>
+      </>
+    );
   }
 
   return (
@@ -274,11 +438,20 @@ export default function OrdersPage() {
         </div>
 
         <div className="bot-actions" aria-label="Bot controls">
-          <button className="control-button remove-bot" type="button">
+          <button
+            className="control-button remove-bot"
+            type="button"
+            onClick={removeBot}
+            disabled={botList.length === 0}
+          >
             <span aria-hidden="true">-</span>
             Bot
           </button>
-          <button className="control-button add-bot" type="button">
+          <button
+            className="control-button add-bot"
+            type="button"
+            onClick={addBot}
+          >
             <span aria-hidden="true">+</span>
             Bot
           </button>
@@ -288,33 +461,42 @@ export default function OrdersPage() {
       <section className="bots-section" aria-labelledby="bots-title">
         <div className="section-heading">
           <h2 id="bots-title">Active Bot Fleet</h2>
-          <span className="count-badge neutral">{bots.length} bots total</span>
+          <span className="count-badge neutral">
+            {botList.length} bots total
+          </span>
         </div>
 
-        <div className="bot-grid">
-          {bots.map((bot) => (
-            <article className="bot-card" key={bot.botId}>
-              <div className="bot-card-top">
-                <div className="bot-name">
-                  <BotIcon />
-                  <span>{bot.botId}</span>
+        {botList.length > 0 ? (
+          <div className="bot-grid">
+            {botList.map((bot) => (
+              <article
+                className={`bot-card ${
+                  bot.status === BotStatus.Idle ? "idle" : "processing"
+                }`}
+                key={bot.id}
+              >
+                <div className="bot-card-top">
+                  <div className="bot-name">
+                    <BotIcon />
+                    <span>{formatBotId(bot.id)}</span>
+                  </div>
+                  <span
+                    className={`status-badge ${
+                      bot.status === BotStatus.Idle ? "idle" : "processing"
+                    }`}
+                  >
+                    {formatOrderStatus(bot.status)}
+                  </span>
                 </div>
-                <span className="status-badge">Busy</span>
-              </div>
-              <div className="bot-work">
-                <span>Preparing</span>
-                <strong>
-                  #{formatOrderId(bot.orderId)}
-                  {bot.vip ? <StarIcon /> : null}
-                </strong>
-              </div>
-              <div className="progress-track" aria-hidden="true">
-                <span style={{ width: `${bot.progress}%` }} />
-              </div>
-              <p>{bot.remaining} remaining</p>
-            </article>
-          ))}
-        </div>
+                {renderBotWork(bot)}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-bot-list">
+            No bots are active. Add a bot to start processing the queue.
+          </div>
+        )}
       </section>
 
       <div className="order-columns">
@@ -366,11 +548,11 @@ export default function OrdersPage() {
               <h2 id="complete-title">Complete</h2>
             </div>
             <span className="count-badge success">
-              {completedOrders.length}
+              {currentCompletedOrders.length}
             </span>
           </header>
           <div className="complete-grid">
-            {completedOrders.map((order) => (
+            {currentCompletedOrders.map((order) => (
               <article
                 className={`order-tile complete ${
                   order.customerType === CustomerType.Vip ? "vip" : "normal"
