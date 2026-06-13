@@ -132,6 +132,26 @@ function CheckIcon() {
   );
 }
 
+function EmptyOrderState({
+  message,
+  title,
+  variant
+}: {
+  message: string;
+  title: string;
+  variant: "pending" | "complete";
+}) {
+  return (
+    <div className={`order-empty-state ${variant}`}>
+      <div className="empty-state-icon" aria-hidden="true">
+        {variant === "pending" ? <QueueIcon /> : <CheckIcon />}
+      </div>
+      <strong>{title}</strong>
+      <p>{message}</p>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const [orderState, setOrderState] = useState<OrdersPageState>(() => ({
     bots: emptyBots(),
@@ -402,27 +422,35 @@ export default function OrdersPage() {
               {currentPendingOrders.length}
             </span>
           </header>
-          <div className="pending-grid">
-            {currentPendingOrders.map((order) => (
-              <article
-                className={`order-tile ${
-                  order.customerType === CustomerType.Vip ? "vip" : "normal"
-                }`}
-                key={order.id}
-              >
-                <span className="order-label">Order</span>
-                <strong>#{formatOrderId(order.id)}</strong>
-                <div className="order-meta">
-                  <span>
-                    Type <b>{formatCustomerType(order.customerType)}</b>
-                  </span>
-                  <span>
-                    Status <b>{formatOrderStatus(order.status)}</b>
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
+          {currentPendingOrders.length > 0 ? (
+            <div className="pending-grid">
+              {currentPendingOrders.map((order) => (
+                <article
+                  className={`order-tile ${
+                    order.customerType === CustomerType.Vip ? "vip" : "normal"
+                  }`}
+                  key={order.id}
+                >
+                  <span className="order-label">Order</span>
+                  <strong>#{formatOrderId(order.id)}</strong>
+                  <div className="order-meta">
+                    <span>
+                      Type <b>{formatCustomerType(order.customerType)}</b>
+                    </span>
+                    <span>
+                      Status <b>{formatOrderStatus(order.status)}</b>
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyOrderState
+              variant="pending"
+              title="No pending orders"
+              message="New orders will appear here until a bot picks them up."
+            />
+          )}
         </section>
 
         <section
@@ -440,27 +468,35 @@ export default function OrdersPage() {
               {currentCompletedOrders.length}
             </span>
           </header>
-          <div className="complete-grid">
-            {currentCompletedOrders.map((order) => (
-              <article
-                className={`order-tile complete ${
-                  order.customerType === CustomerType.Vip ? "vip" : "normal"
-                }`}
-                key={order.id}
-              >
-                <span className="order-label">Order</span>
-                <strong>#{formatOrderId(order.id)}</strong>
-                <div className="order-meta">
-                  <span>
-                    Type <b>{formatCustomerType(order.customerType)}</b>
-                  </span>
-                  <span>
-                    Status <b>{formatOrderStatus(order.status)}</b>
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
+          {currentCompletedOrders.length > 0 ? (
+            <div className="complete-grid">
+              {currentCompletedOrders.map((order) => (
+                <article
+                  className={`order-tile complete ${
+                    order.customerType === CustomerType.Vip ? "vip" : "normal"
+                  }`}
+                  key={order.id}
+                >
+                  <span className="order-label">Order</span>
+                  <strong>#{formatOrderId(order.id)}</strong>
+                  <div className="order-meta">
+                    <span>
+                      Type <b>{formatCustomerType(order.customerType)}</b>
+                    </span>
+                    <span>
+                      Status <b>{formatOrderStatus(order.status)}</b>
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyOrderState
+              variant="complete"
+              title="No completed orders"
+              message="Finished orders will land here after a bot completes them."
+            />
+          )}
         </section>
       </div>
     </main>
