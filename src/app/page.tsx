@@ -394,30 +394,32 @@ export default function OrdersPage() {
         </div>
 
         {botList.length > 0 ? (
-          <div className="bot-grid">
-            {botList.map((bot) => (
-              <article
-                className={`bot-card ${
-                  bot.status === BotStatus.Idle ? "idle" : "processing"
-                }`}
-                key={bot.id}
-              >
-                <div className="bot-card-top">
-                  <div className="bot-name">
-                    <BotIcon />
-                    <span>{formatBotId(bot.id)}</span>
+          <div className="bot-strip">
+            <div className="bot-grid">
+              {botList.map((bot) => (
+                <article
+                  className={`bot-card ${
+                    bot.status === BotStatus.Idle ? "idle" : "processing"
+                  }`}
+                  key={bot.id}
+                >
+                  <div className="bot-card-top">
+                    <div className="bot-name">
+                      <BotIcon />
+                      <span>{formatBotId(bot.id)}</span>
+                    </div>
+                    <span
+                      className={`status-badge ${
+                        bot.status === BotStatus.Idle ? "idle" : "processing"
+                      }`}
+                    >
+                      {formatOrderStatus(bot.status)}
+                    </span>
                   </div>
-                  <span
-                    className={`status-badge ${
-                      bot.status === BotStatus.Idle ? "idle" : "processing"
-                    }`}
-                  >
-                    {formatOrderStatus(bot.status)}
-                  </span>
-                </div>
-                {renderBotWork(bot)}
-              </article>
-            ))}
+                  {renderBotWork(bot)}
+                </article>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="empty-bot-list">
@@ -440,36 +442,38 @@ export default function OrdersPage() {
               {currentPendingOrders.length}
             </span>
           </header>
-          {currentPendingOrders.length > 0 ? (
-            <div className="pending-grid">
-              {currentPendingOrders.map((order) => (
-                <article
-                  className={`order-tile ${
-                    order.customerType === CustomerType.Vip ? "vip" : "normal"
-                  }`}
-                  key={order.id}
-                >
-                  <span className="order-label">Order</span>
-                  <strong>#{formatOrderId(order.id)}</strong>
-                  <div className="order-meta">
-                    <span>
-                      Type{" "}
-                      <CustomerTypeBadge customerType={order.customerType} />
-                    </span>
-                    <span>
-                      Status <OrderStatusBadge status={order.status} />
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <EmptyOrderState
-              variant="pending"
-              title="No pending orders"
-              message="New orders will appear here until a bot picks them up."
-            />
-          )}
+          <div className="queue-panel-body">
+            {currentPendingOrders.length > 0 ? (
+              <div className="pending-grid">
+                {currentPendingOrders.map((order) => (
+                  <article
+                    className={`order-tile ${
+                      order.customerType === CustomerType.Vip ? "vip" : "normal"
+                    }`}
+                    key={order.id}
+                  >
+                    <span className="order-label">Order</span>
+                    <strong>#{formatOrderId(order.id)}</strong>
+                    <div className="order-meta">
+                      <span>
+                        Type{" "}
+                        <CustomerTypeBadge customerType={order.customerType} />
+                      </span>
+                      <span>
+                        Status <OrderStatusBadge status={order.status} />
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyOrderState
+                variant="pending"
+                title="No pending orders"
+                message="New orders will appear here until a bot picks them up."
+              />
+            )}
+          </div>
         </section>
 
         <section
@@ -487,36 +491,38 @@ export default function OrdersPage() {
               {currentCompletedOrders.length}
             </span>
           </header>
-          {currentCompletedOrders.length > 0 ? (
-            <div className="complete-grid">
-              {currentCompletedOrders.map((order) => (
-                <article
-                  className={`order-tile complete ${
-                    order.customerType === CustomerType.Vip ? "vip" : "normal"
-                  }`}
-                  key={order.id}
-                >
-                  <span className="order-label">Order</span>
-                  <strong>#{formatOrderId(order.id)}</strong>
-                  <div className="order-meta">
-                    <span>
-                      Type{" "}
-                      <CustomerTypeBadge customerType={order.customerType} />
-                    </span>
-                    <span>
-                      Status <OrderStatusBadge status={order.status} />
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <EmptyOrderState
-              variant="complete"
-              title="No completed orders"
-              message="Finished orders will land here after a bot completes them."
-            />
-          )}
+          <div className="queue-panel-body">
+            {currentCompletedOrders.length > 0 ? (
+              <div className="complete-grid">
+                {currentCompletedOrders.map((order) => (
+                  <article
+                    className={`order-tile complete ${
+                      order.customerType === CustomerType.Vip ? "vip" : "normal"
+                    }`}
+                    key={order.id}
+                  >
+                    <span className="order-label">Order</span>
+                    <strong>#{formatOrderId(order.id)}</strong>
+                    <div className="order-meta">
+                      <span>
+                        Type{" "}
+                        <CustomerTypeBadge customerType={order.customerType} />
+                      </span>
+                      <span>
+                        Status <OrderStatusBadge status={order.status} />
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyOrderState
+                variant="complete"
+                title="No completed orders"
+                message="Finished orders will land here after a bot completes them."
+              />
+            )}
+          </div>
         </section>
       </div>
     </main>

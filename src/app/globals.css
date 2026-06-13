@@ -23,7 +23,8 @@
 
 html,
 body {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -50,15 +51,18 @@ a {
 }
 
 .site-shell {
-  min-height: 100vh;
+  display: grid;
+  height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .site-header {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 70px;
-  padding: 10px 40px;
+  min-height: 58px;
+  padding: 8px 32px;
   border-bottom: 1px solid var(--border);
   background: #fbfaf5;
 }
@@ -68,7 +72,7 @@ a {
   align-items: center;
   gap: 10px;
   color: var(--gold);
-  font-size: 30px;
+  font-size: 25px;
   font-weight: 800;
   line-height: 1;
 }
@@ -77,22 +81,27 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   border-radius: 8px;
   background: var(--gold);
   color: #ffffff;
   font-family: Georgia, serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
 }
 
 .controller-page {
   display: grid;
-  gap: 30px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
   max-width: 1520px;
   margin: 0 auto;
-  padding: 42px 40px 48px;
+  overflow: hidden;
+  padding: 18px 32px 20px;
 }
 
 .controls-section {
@@ -109,8 +118,8 @@ p {
 }
 
 h1 {
-  margin-bottom: 32px;
-  font-size: clamp(46px, 4.2vw, 64px);
+  margin-bottom: 12px;
+  font-size: clamp(32px, 3.2vw, 44px);
   font-weight: 900;
   letter-spacing: 0;
   line-height: 0.95;
@@ -133,13 +142,13 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  min-height: 60px;
+  gap: 10px;
+  min-height: 48px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 0 28px;
+  padding: 0 20px;
   color: var(--text);
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 500;
   line-height: 1;
   transition:
@@ -158,7 +167,7 @@ h1 {
 }
 
 .normal-order {
-  min-width: 280px;
+  min-width: 228px;
   background: #efeee8;
 }
 
@@ -167,7 +176,7 @@ h1 {
 }
 
 .vip-order {
-  min-width: 240px;
+  min-width: 196px;
   border-color: var(--gold);
   background: var(--gold);
   color: #745800;
@@ -180,8 +189,8 @@ h1 {
 
 .remove-bot,
 .add-bot {
-  min-width: 112px;
-  min-height: 60px;
+  min-width: 98px;
+  min-height: 48px;
   border-color: transparent;
   color: #ffffff;
   font-weight: 800;
@@ -205,8 +214,13 @@ h1 {
 
 .remove-bot span,
 .add-bot span {
-  font-size: 32px;
+  font-size: 26px;
   line-height: 0;
+}
+
+.bots-section {
+  min-width: 0;
+  min-height: 0;
 }
 
 .section-heading {
@@ -214,7 +228,7 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
 }
 
 .section-heading h2 {
@@ -237,9 +251,9 @@ h1 {
 }
 
 .count-badge {
-  min-height: 38px;
-  padding: 0 18px;
-  font-size: 18px;
+  min-height: 30px;
+  padding: 0 13px;
+  font-size: 14px;
 }
 
 .count-badge.neutral {
@@ -255,21 +269,29 @@ h1 {
   background: var(--green-soft);
 }
 
+.bot-strip {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
 .bot-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  display: flex;
+  width: max-content;
+  gap: 12px;
 }
 
 .bot-card {
   display: flex;
-  min-height: 234px;
+  flex: 0 0 280px;
+  min-height: 146px;
   flex-direction: column;
   justify-content: space-between;
   border: 2px solid var(--gold);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface-muted);
-  padding: 20px 22px;
+  padding: 14px 16px;
 }
 
 .bot-card-top,
@@ -285,7 +307,7 @@ h1 {
 
 .bot-name {
   gap: 12px;
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 500;
 }
 
@@ -321,14 +343,14 @@ h1 {
 }
 
 .bot-work span {
-  font-size: 15px;
+  font-size: 12px;
 }
 
 .bot-work strong {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 33px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -337,8 +359,8 @@ h1 {
 }
 
 .bot-work .icon {
-  width: 30px;
-  height: 30px;
+  width: 23px;
+  height: 23px;
 }
 
 .bot-work .icon-fill {
@@ -365,7 +387,7 @@ h1 {
 }
 
 .bot-card p {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .bot-card.idle {
@@ -376,15 +398,15 @@ h1 {
   border: 1px dashed var(--border-strong);
   border-radius: 8px;
   background: #fbfaf5;
-  padding: 28px;
+  padding: 20px;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .order-empty-state {
   display: grid;
-  min-height: 554px;
+  min-height: 100%;
   align-content: center;
   justify-items: center;
   gap: 10px;
@@ -432,13 +454,17 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .queue-panel {
+  display: grid;
   overflow: hidden;
-  min-height: 638px;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--surface);
 }
 
@@ -446,9 +472,9 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 82px;
+  min-height: 58px;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 13px 16px;
   border-bottom: 1px solid var(--border);
   background: #fbfaf5;
 }
@@ -460,29 +486,35 @@ h1 {
 }
 
 .panel-title h2 {
-  font-size: 31px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.queue-panel-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .pending-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(150px, 1fr));
   gap: 12px;
-  padding: 20px;
+  padding: 14px;
 }
 
 .order-tile {
   position: relative;
   display: grid;
-  min-height: 128px;
+  min-height: 106px;
   align-content: start;
-  gap: 8px;
+  gap: 7px;
   overflow: hidden;
   border-radius: 8px;
   background: var(--tile);
-  padding: 20px 24px;
+  padding: 16px 18px;
 }
 
 .order-tile::before {
@@ -511,12 +543,12 @@ h1 {
 
 .order-label {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .order-tile strong {
   display: block;
-  font-size: 32px;
+  font-size: 25px;
   line-height: 1;
 }
 
@@ -579,7 +611,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, minmax(145px, 1fr));
   gap: 12px;
-  padding: 20px;
+  padding: 14px;
 }
 
 .check-ring {
@@ -631,57 +663,49 @@ h1 {
   .controls-section {
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
   }
 
   .bot-actions {
     justify-content: flex-start;
   }
-
-  .bot-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .order-columns {
-    grid-template-columns: 1fr;
-  }
-
-  .queue-panel {
-    min-height: 0;
-  }
-
-  .order-empty-state {
-    min-height: 300px;
-  }
 }
 
 @media (max-width: 760px) {
   .site-header {
-    min-height: 62px;
+    min-height: 54px;
     padding: 10px 16px;
   }
 
   .brand {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .brand-mark {
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
   }
 
   .controller-page {
-    gap: 24px;
-    padding: 30px 16px 36px;
+    gap: 10px;
+    padding: 12px 12px 14px;
+  }
+
+  .controls-section {
+    gap: 10px;
   }
 
   h1 {
-    margin-bottom: 24px;
+    margin-bottom: 10px;
+    font-size: 30px;
   }
 
   .order-actions,
   .bot-actions {
     width: 100%;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
   }
 
   .control-button,
@@ -692,31 +716,58 @@ h1 {
     min-width: 0;
   }
 
-  .order-actions .control-button {
-    width: 100%;
-  }
-
+  .order-actions .control-button,
   .bot-actions .control-button {
-    flex: 1;
+    width: 100%;
+    min-height: 42px;
+    padding: 0 10px;
+    font-size: 14px;
   }
 
-  .bot-grid,
+  .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .section-heading h2 {
+    font-size: 15px;
+  }
+
+  .bot-card {
+    flex-basis: 236px;
+    min-height: 132px;
+    padding: 12px 14px;
+  }
+
+  .order-columns {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+
   .pending-grid,
   .complete-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
 
   .panel-title h2 {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .pending-grid,
   .complete-grid {
-    padding: 14px;
+    padding: 10px;
+    gap: 10px;
   }
 
   .order-empty-state {
-    min-height: 240px;
     padding: 24px 18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .pending-grid,
+  .complete-grid {
+    grid-template-columns: 1fr;
   }
 }
