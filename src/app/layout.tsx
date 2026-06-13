@@ -17,10 +17,12 @@ export default function RootLayout({
       <body>
         <div className="site-shell">
           <header className="site-header">
-            <Link className="brand" href="/">
-              <span className="brand-mark">M</span>
-              <span>McDonald's</span>
-            </Link>
+            <div className="site-header-inner">
+              <Link className="brand" href="/">
+                <span className="brand-mark">M</span>
+                <span>McDonald&apos;s</span>
+              </Link>
+            </div>
           </header>
           {children}
         </div>

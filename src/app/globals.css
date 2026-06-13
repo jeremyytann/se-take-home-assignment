@@ -62,9 +62,16 @@ a {
   align-items: center;
   justify-content: flex-start;
   min-height: 58px;
-  padding: 8px 32px;
   border-bottom: 1px solid var(--border);
   background: #fbfaf5;
+}
+
+.site-header-inner {
+  display: flex;
+  width: 100%;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 8px 32px;
 }
 
 .brand {
@@ -674,7 +681,10 @@ h1 {
 @media (max-width: 760px) {
   .site-header {
     min-height: 54px;
-    padding: 10px 16px;
+  }
+
+  .site-header-inner {
+    padding: 10px 12px;
   }
 
   .brand {
