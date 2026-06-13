@@ -159,6 +159,63 @@ describe("order completion", () => {
       { id: 1, status: BotStatus.Idle, createdAt: 10 }
     ]);
   });
+
+  it("starts the next pending order from the completion timestamp", () => {
+    const pickedUpAt = 2_000;
+    const completedAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Normal, 100),
+          pendingOrder(2, CustomerType.Normal, 200)
+        ]
+      },
+      pickedUpAt
+    });
+
+    const result = completeProcessingOrders({
+      ...assigned,
+      completedAt
+    });
+
+    assert.deepEqual(result.orders[OrderStatus.Complete], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Complete,
+        createdAt: 100,
+        pickedUpAt,
+        completedAt,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(result.orders[OrderStatus.Processing], [
+      {
+        id: 2,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Processing,
+        createdAt: 200,
+        pickedUpAt: completedAt,
+        completesAt: completedAt + ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(result.bots[BotStatus.Processing], [
+      {
+        id: 1,
+        status: BotStatus.Processing,
+        createdAt: 10,
+        orderId: 2,
+        pickedUpAt: completedAt,
+        completesAt: completedAt + ORDER_PROCESSING_TIME_MS
+      }
+    ]);
+  });
 });
 
 describe("bot removal", () => {
@@ -234,5 +291,108 @@ describe("bot removal", () => {
       ]
     );
     assert.deepEqual(result.orders[OrderStatus.Processing], []);
+  });
+
+  it("does not complete a requeued processing order on its original timer", () => {
+    const pickedUpAt = 1_000;
+    const originalCompletesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const interruptedOrder = {
+      id: 1,
+      customerType: CustomerType.Normal,
+      status: OrderStatus.Processing,
+      createdAt: 100,
+      pickedUpAt,
+      completesAt: originalCompletesAt,
+      botId: 2
+    } as const;
+
+    const removed = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: [
+          {
+            id: 2,
+            status: BotStatus.Processing,
+            createdAt: 20,
+            orderId: interruptedOrder.id,
+            pickedUpAt,
+            completesAt: originalCompletesAt
+          }
+        ]
+      },
+      orders: {
+        [OrderStatus.Pending]: [],
+        [OrderStatus.Processing]: [interruptedOrder],
+        [OrderStatus.Complete]: []
+      }
+    });
+
+    assert.deepEqual(removed.orders[OrderStatus.Pending], [
+      pendingOrder(1, CustomerType.Normal, 100)
+    ]);
+    assert.deepEqual(removed.orders[OrderStatus.Processing], []);
+
+    const restarted = completeProcessingOrders({
+      ...removed,
+      completedAt: originalCompletesAt
+    });
+
+    assert.deepEqual(restarted.orders[OrderStatus.Complete], []);
+    assert.deepEqual(restarted.orders[OrderStatus.Pending], []);
+    assert.deepEqual(restarted.orders[OrderStatus.Processing], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Processing,
+        createdAt: 100,
+        pickedUpAt: originalCompletesAt,
+        completesAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(restarted.bots[BotStatus.Processing], [
+      {
+        id: 1,
+        status: BotStatus.Processing,
+        createdAt: 10,
+        orderId: 1,
+        pickedUpAt: originalCompletesAt,
+        completesAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS
+      }
+    ]);
+
+    const originalTimerElapsedAgain = completeProcessingOrders({
+      ...restarted,
+      completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS - 1
+    });
+
+    assert.deepEqual(
+      originalTimerElapsedAgain.orders[OrderStatus.Complete],
+      []
+    );
+    assert.equal(
+      originalTimerElapsedAgain.orders[OrderStatus.Processing][0].pickedUpAt,
+      originalCompletesAt
+    );
+
+    const completedAfterRestartedTimer = completeProcessingOrders({
+      ...originalTimerElapsedAgain,
+      completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS
+    });
+
+    assert.deepEqual(
+      completedAfterRestartedTimer.orders[OrderStatus.Complete],
+      [
+        {
+          id: 1,
+          customerType: CustomerType.Normal,
+          status: OrderStatus.Complete,
+          createdAt: 100,
+          pickedUpAt: originalCompletesAt,
+          completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS,
+          botId: 1
+        }
+      ]
+    );
   });
 });
