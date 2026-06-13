@@ -82,3 +82,33 @@ export function enqueuePendingOrder(
     ...queue.slice(nextNormalOrderIndex)
   ];
 }
+
+function comparePendingOrderPriority(
+  firstOrder: PendingOrder,
+  secondOrder: PendingOrder
+): number {
+  if (firstOrder.customerType !== secondOrder.customerType) {
+    return firstOrder.customerType === CustomerType.Vip ? -1 : 1;
+  }
+
+  if (firstOrder.createdAt !== secondOrder.createdAt) {
+    return firstOrder.createdAt - secondOrder.createdAt;
+  }
+
+  return firstOrder.id - secondOrder.id;
+}
+
+export function requeueInterruptedOrder(
+  queue: OrderQueue,
+  order: PendingOrder
+): OrderQueue {
+  const insertIndex = queue.findIndex(
+    (queuedOrder) => comparePendingOrderPriority(order, queuedOrder) < 0
+  );
+
+  if (insertIndex === -1) {
+    return [...queue, order];
+  }
+
+  return [...queue.slice(0, insertIndex), order, ...queue.slice(insertIndex)];
+}

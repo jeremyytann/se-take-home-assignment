@@ -6,7 +6,7 @@ import {
 } from "./bot";
 import {
   OrderStatus,
-  enqueuePendingOrder,
+  requeueInterruptedOrder,
   type CompleteOrder,
   type OrdersByStatus,
   type PendingOrder,
@@ -206,7 +206,7 @@ export function removeNewestBot({
   );
 
   const nextPendingOrders = interruptedOrder
-    ? enqueuePendingOrder(orders[OrderStatus.Pending], {
+    ? requeueInterruptedOrder(orders[OrderStatus.Pending], {
         id: interruptedOrder.id,
         customerType: interruptedOrder.customerType,
         status: OrderStatus.Pending,
