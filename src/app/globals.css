@@ -56,7 +56,7 @@ a {
 .site-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-height: 70px;
   padding: 10px 40px;
   border-bottom: 1px solid var(--border);
@@ -85,14 +85,6 @@ a {
   font-family: Georgia, serif;
   font-size: 30px;
   font-weight: 700;
-}
-
-.operator-avatar {
-  width: 50px;
-  height: 50px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: #e9e8e0;
 }
 
 .controller-page {
@@ -635,8 +627,7 @@ h1 {
     font-size: 24px;
   }
 
-  .brand-mark,
-  .operator-avatar {
+  .brand-mark {
     width: 42px;
     height: 42px;
   }

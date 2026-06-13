@@ -21,7 +21,6 @@ export default function RootLayout({
               <span className="brand-mark">M</span>
               <span>BotKitchen</span>
             </Link>
-            <div className="operator-avatar" aria-label="Operator profile" />
           </header>
           {children}
         </div>
