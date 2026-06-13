@@ -6,8 +6,10 @@ import {
 } from "./bot";
 import {
   OrderStatus,
+  enqueuePendingOrder,
   type CompleteOrder,
   type OrdersByStatus,
+  type PendingOrder,
   type ProcessingOrder
 } from "./order";
 import type { TimestampMs } from "./primitives";
@@ -34,6 +36,13 @@ export type CompleteProcessingOrdersInput = {
 };
 
 export type CompleteProcessingOrdersResult = AssignPendingOrdersResult;
+
+export type RemoveNewestBotInput = {
+  bots: BotsByStatus;
+  orders: OrdersByStatus;
+};
+
+export type RemoveNewestBotResult = AssignPendingOrdersResult;
 
 export function assignPendingOrdersToIdleBots({
   bots,
@@ -147,4 +156,75 @@ export function completeProcessingOrders({
     pickedUpAt: completedAt,
     processingTimeMs
   });
+}
+
+export function removeNewestBot({
+  bots,
+  orders
+}: RemoveNewestBotInput): RemoveNewestBotResult {
+  const newestBot = [
+    ...bots[BotStatus.Idle],
+    ...bots[BotStatus.Processing]
+  ].reduce<IdleBot | ProcessingBot | undefined>((newest, bot) => {
+    if (!newest) {
+      return bot;
+    }
+
+    if (bot.createdAt > newest.createdAt) {
+      return bot;
+    }
+
+    if (bot.createdAt === newest.createdAt && bot.id > newest.id) {
+      return bot;
+    }
+
+    return newest;
+  }, undefined);
+
+  if (!newestBot) {
+    return { bots, orders };
+  }
+
+  if (newestBot.status === BotStatus.Idle) {
+    return {
+      bots: {
+        [BotStatus.Idle]: bots[BotStatus.Idle].filter(
+          (bot) => bot.id !== newestBot.id
+        ),
+        [BotStatus.Processing]: bots[BotStatus.Processing]
+      },
+      orders
+    };
+  }
+
+  const interruptedOrder = orders[OrderStatus.Processing].find(
+    (order) => order.id === newestBot.orderId
+  );
+
+  const nextProcessingOrders = orders[OrderStatus.Processing].filter(
+    (order) => order.id !== newestBot.orderId
+  );
+
+  const nextPendingOrders = interruptedOrder
+    ? enqueuePendingOrder(orders[OrderStatus.Pending], {
+        id: interruptedOrder.id,
+        customerType: interruptedOrder.customerType,
+        status: OrderStatus.Pending,
+        createdAt: interruptedOrder.createdAt
+      } satisfies PendingOrder)
+    : orders[OrderStatus.Pending];
+
+  return {
+    bots: {
+      [BotStatus.Idle]: bots[BotStatus.Idle],
+      [BotStatus.Processing]: bots[BotStatus.Processing].filter(
+        (bot) => bot.id !== newestBot.id
+      )
+    },
+    orders: {
+      [OrderStatus.Pending]: nextPendingOrders,
+      [OrderStatus.Processing]: nextProcessingOrders,
+      [OrderStatus.Complete]: orders[OrderStatus.Complete]
+    }
+  };
 }
