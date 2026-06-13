@@ -2,13 +2,11 @@
 
 # Unit Test Script
 # This script should contain all unit test execution steps
+set -euo pipefail
 
 echo "Running unit tests..."
 
-# For Go projects:
-# go test ./... -v
-
-# For Node.js projects:
-# npm test
+npx tsc --project tsconfig.test.json
+node --test .tmp/test/src/domain/assignment.test.js
 
 echo "Unit tests completed"

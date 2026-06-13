@@ -1,0 +1,238 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import {
+  assignPendingOrdersToIdleBots,
+  BotStatus,
+  completeProcessingOrders,
+  CustomerType,
+  enqueuePendingOrder,
+  ORDER_PROCESSING_TIME_MS,
+  OrderStatus,
+  removeNewestBot,
+  type BotsByStatus,
+  type OrdersByStatus,
+  type PendingOrder
+} from ".";
+
+function pendingOrder(
+  id: number,
+  customerType: CustomerType,
+  createdAt = id
+): PendingOrder {
+  return {
+    id,
+    customerType,
+    status: OrderStatus.Pending,
+    createdAt
+  };
+}
+
+function emptyOrders(): OrdersByStatus {
+  return {
+    [OrderStatus.Pending]: [],
+    [OrderStatus.Processing]: [],
+    [OrderStatus.Complete]: []
+  };
+}
+
+describe("order queue priority", () => {
+  it("queues VIP orders behind existing VIP orders and before normal orders", () => {
+    const queue = [
+      pendingOrder(1, CustomerType.Vip),
+      pendingOrder(2, CustomerType.Normal),
+      pendingOrder(3, CustomerType.Normal)
+    ];
+
+    const nextQueue = enqueuePendingOrder(
+      queue,
+      pendingOrder(4, CustomerType.Vip)
+    );
+
+    assert.deepEqual(
+      nextQueue.map((order) => order.id),
+      [1, 4, 2, 3]
+    );
+  });
+
+  it("queues normal orders after all existing pending orders", () => {
+    const queue = [
+      pendingOrder(1, CustomerType.Vip),
+      pendingOrder(2, CustomerType.Normal)
+    ];
+
+    const nextQueue = enqueuePendingOrder(
+      queue,
+      pendingOrder(3, CustomerType.Normal)
+    );
+
+    assert.deepEqual(
+      nextQueue.map((order) => order.id),
+      [1, 2, 3]
+    );
+  });
+});
+
+describe("bot assignment", () => {
+  it("moves an idle bot and the next pending order into processing", () => {
+    const pickedUpAt = 1_000;
+    const result = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+
+    assert.deepEqual(result.bots[BotStatus.Idle], []);
+    assert.deepEqual(result.orders[OrderStatus.Pending], []);
+    assert.deepEqual(result.bots[BotStatus.Processing], [
+      {
+        id: 1,
+        status: BotStatus.Processing,
+        createdAt: 10,
+        orderId: 1,
+        pickedUpAt,
+        completesAt: pickedUpAt + ORDER_PROCESSING_TIME_MS
+      }
+    ]);
+    assert.deepEqual(result.orders[OrderStatus.Processing], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Processing,
+        createdAt: 100,
+        pickedUpAt,
+        completesAt: pickedUpAt + ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
+  });
+});
+
+describe("order completion", () => {
+  it("does not complete before 10 seconds and completes once 10 seconds have elapsed", () => {
+    const pickedUpAt = 2_000;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+
+    const tooEarly = completeProcessingOrders({
+      ...assigned,
+      completedAt: pickedUpAt + ORDER_PROCESSING_TIME_MS - 1
+    });
+
+    assert.equal(tooEarly.orders[OrderStatus.Complete].length, 0);
+    assert.equal(tooEarly.orders[OrderStatus.Processing].length, 1);
+    assert.equal(tooEarly.bots[BotStatus.Idle].length, 0);
+
+    const completed = completeProcessingOrders({
+      ...tooEarly,
+      completedAt: pickedUpAt + ORDER_PROCESSING_TIME_MS
+    });
+
+    assert.deepEqual(completed.orders[OrderStatus.Processing], []);
+    assert.deepEqual(completed.orders[OrderStatus.Complete], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Complete,
+        createdAt: 100,
+        pickedUpAt,
+        completedAt: pickedUpAt + ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(completed.bots[BotStatus.Idle], [
+      { id: 1, status: BotStatus.Idle, createdAt: 10 }
+    ]);
+  });
+});
+
+describe("bot removal", () => {
+  it("removes the newest idle bot", () => {
+    const result = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [
+          { id: 1, status: BotStatus.Idle, createdAt: 10 },
+          { id: 2, status: BotStatus.Idle, createdAt: 20 }
+        ],
+        [BotStatus.Processing]: []
+      },
+      orders: emptyOrders()
+    });
+
+    assert.deepEqual(result.bots[BotStatus.Idle], [
+      { id: 1, status: BotStatus.Idle, createdAt: 10 }
+    ]);
+    assert.deepEqual(result.bots[BotStatus.Processing], []);
+  });
+
+  it("removes the newest processing bot and requeues its order by priority", () => {
+    const pickedUpAt = 1_000;
+    const completesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const interruptedOrder = {
+      id: 3,
+      customerType: CustomerType.Vip,
+      status: OrderStatus.Processing,
+      createdAt: 30,
+      pickedUpAt,
+      completesAt,
+      botId: 2
+    } as const;
+
+    const result = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: [
+          {
+            id: 2,
+            status: BotStatus.Processing,
+            createdAt: 20,
+            orderId: 3,
+            pickedUpAt,
+            completesAt
+          }
+        ]
+      },
+      orders: {
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Vip, 10),
+          pendingOrder(2, CustomerType.Normal, 20)
+        ],
+        [OrderStatus.Processing]: [interruptedOrder],
+        [OrderStatus.Complete]: []
+      }
+    });
+
+    assert.deepEqual(result.bots[BotStatus.Idle], [
+      { id: 1, status: BotStatus.Idle, createdAt: 10 }
+    ]);
+    assert.deepEqual(result.bots[BotStatus.Processing], []);
+    assert.deepEqual(
+      result.orders[OrderStatus.Pending].map((order) => [
+        order.id,
+        order.customerType,
+        order.status
+      ]),
+      [
+        [1, CustomerType.Vip, OrderStatus.Pending],
+        [3, CustomerType.Vip, OrderStatus.Pending],
+        [2, CustomerType.Normal, OrderStatus.Pending]
+      ]
+    );
+    assert.deepEqual(result.orders[OrderStatus.Processing], []);
+  });
+});
