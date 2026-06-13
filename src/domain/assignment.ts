@@ -1,6 +1,12 @@
-import { BotStatus, type BotsByStatus, type ProcessingBot } from "./bot";
+import {
+  BotStatus,
+  type BotsByStatus,
+  type IdleBot,
+  type ProcessingBot
+} from "./bot";
 import {
   OrderStatus,
+  type CompleteOrder,
   type OrdersByStatus,
   type ProcessingOrder
 } from "./order";
@@ -19,6 +25,15 @@ export type AssignPendingOrdersResult = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
 };
+
+export type CompleteProcessingOrdersInput = {
+  bots: BotsByStatus;
+  orders: OrdersByStatus;
+  completedAt: TimestampMs;
+  processingTimeMs?: TimestampMs;
+};
+
+export type CompleteProcessingOrdersResult = AssignPendingOrdersResult;
 
 export function assignPendingOrdersToIdleBots({
   bots,
@@ -71,4 +86,65 @@ export function assignPendingOrdersToIdleBots({
       [OrderStatus.Complete]: orders[OrderStatus.Complete]
     }
   };
+}
+
+export function completeProcessingOrders({
+  bots,
+  orders,
+  completedAt,
+  processingTimeMs
+}: CompleteProcessingOrdersInput): CompleteProcessingOrdersResult {
+  const completedOrders = orders[OrderStatus.Processing].filter(
+    (order) => order.completesAt <= completedAt
+  );
+
+  if (completedOrders.length === 0) {
+    return assignPendingOrdersToIdleBots({
+      bots,
+      orders,
+      pickedUpAt: completedAt,
+      processingTimeMs
+    });
+  }
+
+  const completedOrderIds = new Set(completedOrders.map((order) => order.id));
+
+  const idleBots: IdleBot[] = bots[BotStatus.Processing]
+    .filter((bot) => completedOrderIds.has(bot.orderId))
+    .map((bot) => ({
+      id: bot.id,
+      status: BotStatus.Idle,
+      createdAt: bot.createdAt
+    }));
+
+  const nextOrders: OrdersByStatus = {
+    [OrderStatus.Pending]: orders[OrderStatus.Pending],
+    [OrderStatus.Processing]: orders[OrderStatus.Processing].filter(
+      (order) => !completedOrderIds.has(order.id)
+    ),
+    [OrderStatus.Complete]: [
+      ...orders[OrderStatus.Complete],
+      ...completedOrders.map<CompleteOrder>((order) => ({
+        id: order.id,
+        customerType: order.customerType,
+        status: OrderStatus.Complete,
+        createdAt: order.createdAt,
+        pickedUpAt: order.pickedUpAt,
+        completedAt,
+        botId: order.botId
+      }))
+    ]
+  };
+
+  return assignPendingOrdersToIdleBots({
+    bots: {
+      [BotStatus.Idle]: [...bots[BotStatus.Idle], ...idleBots],
+      [BotStatus.Processing]: bots[BotStatus.Processing].filter(
+        (bot) => !completedOrderIds.has(bot.orderId)
+      )
+    },
+    orders: nextOrders,
+    pickedUpAt: completedAt,
+    processingTimeMs
+  });
 }
