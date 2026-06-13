@@ -63,6 +63,67 @@ You must implement **either** frontend or backend components as described below:
 - Utilize coding agent to complete the assignment scope your working hour within 1 hour, do not over engineer it. However, ensure you read and understand what your code doing and apply good engineering practice.
 - Complete the implementation as clean as possible, clean code is a strong plus point, do not bring in all the fancy tech stuff.
 
+### Run Locally
+This prototype is a Next.js frontend application. It keeps all order and bot state in memory, so no database or external service setup is required.
+
+#### Prerequisites
+- Node.js 20.9.0 or newer
+- npm
+
+#### Setup
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start the development server:
+
+```bash
+npm run dev
+```
+
+3. Open the app in your browser:
+
+```text
+http://localhost:3000
+```
+
+Use the `New Normal Order`, `New VIP Order`, `+ Bot`, and `- Bot` controls to exercise the order flow locally.
+
+#### Verification Commands
+Run the domain unit tests:
+
+```bash
+npm test
+```
+
+Run linting and formatting checks:
+
+```bash
+npm run lint
+```
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+Preview the production build after `npm run build`:
+
+```bash
+npm start
+```
+
+The assignment helper scripts can also be run directly when needed:
+
+```bash
+bash scripts/test.sh
+bash scripts/build.sh
+bash scripts/run.sh
+```
+
 ### Implementation Architecture
 This solution is implemented as a frontend prototype with Next.js and React. The UI in `src/app/page.tsx` owns the in-memory application state, while the order and bot behavior live in the domain module under `src/domain`.
 
