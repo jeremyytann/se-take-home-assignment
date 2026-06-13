@@ -62,3 +62,63 @@ You must implement **either** frontend or backend components as described below:
 - Testing, testing and testing. Make sure the prototype is functioning and meeting all the requirements.
 - Utilize coding agent to complete the assignment scope your working hour within 1 hour, do not over engineer it. However, ensure you read and understand what your code doing and apply good engineering practice.
 - Complete the implementation as clean as possible, clean code is a strong plus point, do not bring in all the fancy tech stuff.
+
+### Implementation Architecture
+This solution is implemented as a frontend prototype with Next.js and React. The UI in `src/app/page.tsx` owns the in-memory application state, while the order and bot behavior live in the domain module under `src/domain`.
+
+The domain layer is intentionally framework-independent. It exposes pure transition functions that accept the current bot/order state and return the next state:
+
+- `enqueuePendingOrder` inserts a new pending order according to customer priority.
+- `assignPendingOrdersToIdleBots` pairs idle bots with pending orders.
+- `completeProcessingOrders` completes orders whose 10-second processing window has elapsed, then immediately assigns any newly idle bots to the next pending orders.
+- `removeNewestBot` destroys the newest bot and requeues its interrupted order when that bot was processing.
+
+The page state keeps all prototype data in memory:
+
+- `orders`: grouped by `PENDING`, `PROCESSING`, and `COMPLETE`.
+- `bots`: grouped by `IDLE` and `PROCESSING`.
+- `nextOrderId`: the next unique increasing order number.
+- `nextBotId`: the next unique increasing bot number.
+- `currentTime`: the UI clock used to render progress and remaining time.
+
+No persistence is used. Refreshing the page resets the controller state.
+
+### Order State Model
+Orders move through three explicit states defined in `src/domain/order.ts`.
+
+#### Pending
+`PENDING` orders are accepted orders that have not been picked up by a bot yet. This is the visible pending queue in the UI.
+
+Normal orders are appended to the end of the queue. VIP orders are inserted after existing VIP orders and before the first normal order, so VIP orders keep first-in-first-out order among themselves while still taking priority over normal orders.
+
+When a new order is created, the UI first enqueues it as pending and then calls `assignPendingOrdersToIdleBots`. If an idle bot is already available, the order may immediately leave the pending queue and enter processing.
+
+#### Processing
+`PROCESSING` orders have been picked up by a bot. A processing order stores:
+
+- the original order id and customer type;
+- when it was created;
+- when the bot picked it up;
+- when it is scheduled to complete;
+- which bot is processing it.
+
+Processing orders are not shown as a separate order column. Instead, the active bot card shows the order it is preparing, the remaining time, and a progress bar.
+
+Each processing window is 10 seconds by default (`ORDER_PROCESSING_TIME_MS`). The React page runs a 250ms interval that calls `completeProcessingOrders` with the current time. An order only completes when `completesAt <= completedAt`.
+
+#### Complete
+`COMPLETE` orders are finished orders. When a processing order reaches its completion timestamp, it is moved into the complete list with its `completedAt` timestamp and the `botId` that finished it.
+
+After completion, the bot returns to `IDLE` in the same state transition. The completion function then immediately attempts another assignment, so a bot that finishes one order can pick up the next pending order at the same timestamp.
+
+### Bot Lifecycle
+Bots have two states defined in `src/domain/bot.ts`: `IDLE` and `PROCESSING`.
+
+1. A bot is created when the user clicks `+ Bot`. It receives an increasing id and starts as `IDLE`.
+2. After creation, assignment runs immediately. If there is a pending order, the new bot becomes `PROCESSING`; otherwise it remains `IDLE`.
+3. While processing, the bot stores the order id, pickup timestamp, and completion timestamp. It can process exactly one order at a time.
+4. When the order completes after 10 seconds, the bot becomes `IDLE`.
+5. If more pending orders exist, the same transition immediately assigns the newly idle bot to the next order.
+6. When the user clicks `- Bot`, the newest bot is destroyed. "Newest" is selected by the latest `createdAt` timestamp, with the higher bot id used as a tie-breaker.
+7. If the destroyed bot was idle, it is simply removed.
+8. If the destroyed bot was processing, its order is removed from `PROCESSING` and requeued as `PENDING` using the same VIP/normal priority rules. Its previous pickup and completion timestamps are discarded, so the order gets a fresh 10-second processing window when another bot picks it up.
