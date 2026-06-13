@@ -1,76 +1,156 @@
+"use client";
+
+import { useState } from "react";
+
+import {
+  CustomerType,
+  OrderStatus,
+  enqueuePendingOrder,
+  type PendingOrder
+} from "@/domain";
+
 type BotCard = {
   botId: string;
-  orderId: string;
+  orderId: number;
   remaining: string;
   progress: number;
   vip: boolean;
 };
 
-type PendingOrder = {
-  id: string;
-  kind: "VIP" | "NORMAL";
-};
-
 type CompleteOrder = {
-  id: string;
+  id: number;
 };
 
 const bots: BotCard[] = [
   {
     botId: "BOT-01",
-    orderId: "0025",
+    orderId: 25,
     remaining: "5s",
     progress: 50,
     vip: true
   },
   {
     botId: "BOT-02",
-    orderId: "0026",
+    orderId: 26,
     remaining: "10s",
     progress: 0,
     vip: true
   },
   {
     botId: "BOT-03",
-    orderId: "0027",
+    orderId: 27,
     remaining: "10s",
     progress: 0,
     vip: true
   },
-  { botId: "BOT-04", orderId: "0028", remaining: "10s", progress: 0, vip: true }
+  { botId: "BOT-04", orderId: 28, remaining: "10s", progress: 0, vip: true }
 ];
 
 const pendingOrders: PendingOrder[] = [
-  { id: "0029", kind: "VIP" },
-  { id: "0030", kind: "VIP" },
-  { id: "0031", kind: "VIP" },
-  { id: "0008", kind: "NORMAL" },
-  { id: "0009", kind: "NORMAL" },
-  { id: "0010", kind: "NORMAL" },
-  { id: "0011", kind: "NORMAL" },
-  { id: "0012", kind: "NORMAL" },
-  { id: "0013", kind: "NORMAL" },
-  { id: "0014", kind: "NORMAL" },
-  { id: "0015", kind: "NORMAL" }
+  {
+    id: 29,
+    customerType: CustomerType.Vip,
+    status: OrderStatus.Pending,
+    createdAt: 29
+  },
+  {
+    id: 30,
+    customerType: CustomerType.Vip,
+    status: OrderStatus.Pending,
+    createdAt: 30
+  },
+  {
+    id: 31,
+    customerType: CustomerType.Vip,
+    status: OrderStatus.Pending,
+    createdAt: 31
+  },
+  {
+    id: 8,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 8
+  },
+  {
+    id: 9,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 9
+  },
+  {
+    id: 10,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 10
+  },
+  {
+    id: 11,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 11
+  },
+  {
+    id: 12,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 12
+  },
+  {
+    id: 13,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 13
+  },
+  {
+    id: 14,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 14
+  },
+  {
+    id: 15,
+    customerType: CustomerType.Normal,
+    status: OrderStatus.Pending,
+    createdAt: 15
+  }
 ];
 
 const completedOrders: CompleteOrder[] = [
-  { id: "0024" },
-  { id: "0023" },
-  { id: "0022" },
-  { id: "0021" },
-  { id: "0020" },
-  { id: "0019" },
-  { id: "0018" },
-  { id: "0017" },
-  { id: "0016" },
-  { id: "0007" },
-  { id: "0006" },
-  { id: "0005" },
-  { id: "0004" },
-  { id: "0003" },
-  { id: "0002" }
+  { id: 24 },
+  { id: 23 },
+  { id: 22 },
+  { id: 21 },
+  { id: 20 },
+  { id: 19 },
+  { id: 18 },
+  { id: 17 },
+  { id: 16 },
+  { id: 7 },
+  { id: 6 },
+  { id: 5 },
+  { id: 4 },
+  { id: 3 },
+  { id: 2 }
 ];
+
+type OrdersPageState = {
+  pendingOrders: PendingOrder[];
+  nextOrderId: number;
+};
+
+function formatOrderId(orderId: number): string {
+  return orderId.toString().padStart(4, "0");
+}
+
+function getInitialNextOrderId(): number {
+  return (
+    Math.max(
+      ...bots.map((bot) => bot.orderId),
+      ...pendingOrders.map((order) => order.id),
+      ...completedOrders.map((order) => order.id)
+    ) + 1
+  );
+}
 
 function CartIcon() {
   return (
@@ -129,17 +209,43 @@ function CheckIcon() {
 }
 
 export default function OrdersPage() {
+  const [{ pendingOrders: currentPendingOrders }, setOrderState] =
+    useState<OrdersPageState>(() => ({
+      pendingOrders,
+      nextOrderId: getInitialNextOrderId()
+    }));
+
+  function createOrder(customerType: CustomerType) {
+    setOrderState((state) => ({
+      pendingOrders: enqueuePendingOrder(state.pendingOrders, {
+        id: state.nextOrderId,
+        customerType,
+        status: OrderStatus.Pending,
+        createdAt: Date.now()
+      }),
+      nextOrderId: state.nextOrderId + 1
+    }));
+  }
+
   return (
     <main className="controller-page">
       <section className="controls-section" aria-labelledby="controller-title">
         <div>
           <h1 id="controller-title">Order Controller</h1>
           <div className="order-actions" aria-label="Order controls">
-            <button className="control-button normal-order" type="button">
+            <button
+              className="control-button normal-order"
+              type="button"
+              onClick={() => createOrder(CustomerType.Normal)}
+            >
               <CartIcon />
               New Normal Order
             </button>
-            <button className="control-button vip-order" type="button">
+            <button
+              className="control-button vip-order"
+              type="button"
+              onClick={() => createOrder(CustomerType.Vip)}
+            >
               <StarIcon />
               New VIP Order
             </button>
@@ -177,7 +283,7 @@ export default function OrdersPage() {
               <div className="bot-work">
                 <span>Preparing</span>
                 <strong>
-                  #{bot.orderId}
+                  #{formatOrderId(bot.orderId)}
                   {bot.vip ? <StarIcon /> : null}
                 </strong>
               </div>
@@ -200,17 +306,21 @@ export default function OrdersPage() {
               <QueueIcon />
               <h2 id="pending-title">Pending Queue</h2>
             </div>
-            <span className="count-badge warning">13</span>
+            <span className="count-badge warning">
+              {currentPendingOrders.length}
+            </span>
           </header>
           <div className="pending-grid">
-            {pendingOrders.map((order) => (
+            {currentPendingOrders.map((order) => (
               <article
-                className={`order-tile ${order.kind === "VIP" ? "vip" : "normal"}`}
+                className={`order-tile ${
+                  order.customerType === CustomerType.Vip ? "vip" : "normal"
+                }`}
                 key={order.id}
               >
                 <span>Order</span>
-                <strong>#{order.id}</strong>
-                <mark>{order.kind}</mark>
+                <strong>#{formatOrderId(order.id)}</strong>
+                <mark>{order.customerType}</mark>
               </article>
             ))}
           </div>
@@ -227,13 +337,15 @@ export default function OrdersPage() {
               </span>
               <h2 id="complete-title">Complete</h2>
             </div>
-            <span className="count-badge success">16</span>
+            <span className="count-badge success">
+              {completedOrders.length}
+            </span>
           </header>
           <div className="complete-grid">
             {completedOrders.map((order) => (
               <article className="complete-tile" key={order.id}>
                 <span>Ready for pickup</span>
-                <strong>#{order.id}</strong>
+                <strong>#{formatOrderId(order.id)}</strong>
                 <span className="tile-check">
                   <CheckIcon />
                 </span>
