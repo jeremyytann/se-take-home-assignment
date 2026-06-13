@@ -229,8 +229,7 @@ h1 {
 }
 
 .count-badge,
-.status-badge,
-.order-tile mark {
+.status-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -307,8 +306,8 @@ h1 {
 
 .bot-work span,
 .bot-card p,
-.order-tile span,
-.complete-tile span {
+.order-label,
+.order-meta span {
   color: var(--muted);
   font-weight: 900;
   text-transform: uppercase;
@@ -400,11 +399,14 @@ h1 {
 
 .order-tile {
   position: relative;
-  min-height: 100px;
+  display: grid;
+  min-height: 128px;
+  align-content: start;
+  gap: 8px;
   overflow: hidden;
   border-radius: 8px;
   background: var(--tile);
-  padding: 21px 24px;
+  padding: 20px 24px;
 }
 
 .order-tile::before {
@@ -423,39 +425,41 @@ h1 {
   background: var(--gold);
 }
 
-.order-tile span,
-.complete-tile span {
+.order-tile.complete::before {
+  background: var(--green);
+}
+
+.order-tile.complete strong {
+  color: #319a5b;
+}
+
+.order-label {
   display: block;
   font-size: 14px;
 }
 
 .order-tile strong {
   display: block;
-  margin-top: 3px;
   font-size: 32px;
   line-height: 1;
 }
 
-.order-tile mark {
-  position: absolute;
-  right: 20px;
-  top: 36px;
-  min-width: 80px;
-  min-height: 32px;
-  padding: 0 12px;
-  background: #dfded8;
-  color: #463f2b;
-  font-size: 15px;
+.order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
 }
 
-.order-tile.vip mark {
+.order-meta span {
+  display: inline-flex;
   gap: 5px;
-  background: var(--gold);
-  color: #6a4d00;
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
-.order-tile.vip mark::before {
-  content: "*";
+.order-meta b {
+  color: var(--text);
+  font-size: 13px;
 }
 
 .complete-grid {
@@ -463,45 +467,6 @@ h1 {
   grid-template-columns: repeat(3, minmax(145px, 1fr));
   gap: 12px;
   padding: 20px;
-}
-
-.complete-tile {
-  position: relative;
-  min-height: 100px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--tile);
-  padding: 21px 54px 20px 24px;
-}
-
-.complete-tile::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
-  background: var(--green);
-  content: "";
-}
-
-.complete-tile strong {
-  display: block;
-  margin-top: 5px;
-  color: #319a5b;
-  font-size: 32px;
-  line-height: 1;
-}
-
-.tile-check {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  right: 20px;
-  top: 36px;
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--green);
-  border-radius: 50%;
-  color: var(--green);
 }
 
 .check-ring {
@@ -540,12 +505,6 @@ h1 {
 .panel-title > .icon {
   color: var(--gold);
   stroke-width: 2.8;
-}
-
-.tile-check .icon {
-  width: 19px;
-  height: 19px;
-  stroke-width: 3;
 }
 
 @media (max-width: 1360px) {

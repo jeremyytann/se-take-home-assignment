@@ -6,6 +6,7 @@ import {
   CustomerType,
   OrderStatus,
   enqueuePendingOrder,
+  type CompleteOrder,
   type PendingOrder
 } from "@/domain";
 
@@ -15,10 +16,6 @@ type BotCard = {
   remaining: string;
   progress: number;
   vip: boolean;
-};
-
-type CompleteOrder = {
-  id: number;
 };
 
 const bots: BotCard[] = [
@@ -115,22 +112,38 @@ const pendingOrders: PendingOrder[] = [
   }
 ];
 
+function completeOrder(
+  id: number,
+  customerType: CustomerType,
+  botId: number
+): CompleteOrder {
+  return {
+    id,
+    customerType,
+    status: OrderStatus.Complete,
+    createdAt: id,
+    pickedUpAt: id + 1_000,
+    completedAt: id + 11_000,
+    botId
+  };
+}
+
 const completedOrders: CompleteOrder[] = [
-  { id: 24 },
-  { id: 23 },
-  { id: 22 },
-  { id: 21 },
-  { id: 20 },
-  { id: 19 },
-  { id: 18 },
-  { id: 17 },
-  { id: 16 },
-  { id: 7 },
-  { id: 6 },
-  { id: 5 },
-  { id: 4 },
-  { id: 3 },
-  { id: 2 }
+  completeOrder(24, CustomerType.Vip, 1),
+  completeOrder(23, CustomerType.Vip, 2),
+  completeOrder(22, CustomerType.Vip, 3),
+  completeOrder(21, CustomerType.Vip, 4),
+  completeOrder(20, CustomerType.Vip, 1),
+  completeOrder(19, CustomerType.Vip, 2),
+  completeOrder(18, CustomerType.Vip, 3),
+  completeOrder(17, CustomerType.Vip, 4),
+  completeOrder(16, CustomerType.Vip, 1),
+  completeOrder(7, CustomerType.Normal, 2),
+  completeOrder(6, CustomerType.Normal, 3),
+  completeOrder(5, CustomerType.Normal, 4),
+  completeOrder(4, CustomerType.Normal, 1),
+  completeOrder(3, CustomerType.Normal, 2),
+  completeOrder(2, CustomerType.Normal, 3)
 ];
 
 type OrdersPageState = {
@@ -140,6 +153,14 @@ type OrdersPageState = {
 
 function formatOrderId(orderId: number): string {
   return orderId.toString().padStart(4, "0");
+}
+
+function formatCustomerType(customerType: CustomerType): string {
+  return customerType === CustomerType.Vip ? "VIP" : "Normal";
+}
+
+function formatOrderStatus(status: OrderStatus): string {
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 function getInitialNextOrderId(): number {
@@ -318,9 +339,16 @@ export default function OrdersPage() {
                 }`}
                 key={order.id}
               >
-                <span>Order</span>
+                <span className="order-label">Order</span>
                 <strong>#{formatOrderId(order.id)}</strong>
-                <mark>{order.customerType}</mark>
+                <div className="order-meta">
+                  <span>
+                    Type <b>{formatCustomerType(order.customerType)}</b>
+                  </span>
+                  <span>
+                    Status <b>{formatOrderStatus(order.status)}</b>
+                  </span>
+                </div>
               </article>
             ))}
           </div>
@@ -343,12 +371,22 @@ export default function OrdersPage() {
           </header>
           <div className="complete-grid">
             {completedOrders.map((order) => (
-              <article className="complete-tile" key={order.id}>
-                <span>Ready for pickup</span>
+              <article
+                className={`order-tile complete ${
+                  order.customerType === CustomerType.Vip ? "vip" : "normal"
+                }`}
+                key={order.id}
+              >
+                <span className="order-label">Order</span>
                 <strong>#{formatOrderId(order.id)}</strong>
-                <span className="tile-check">
-                  <CheckIcon />
-                </span>
+                <div className="order-meta">
+                  <span>
+                    Type <b>{formatCustomerType(order.customerType)}</b>
+                  </span>
+                  <span>
+                    Status <b>{formatOrderStatus(order.status)}</b>
+                  </span>
+                </div>
               </article>
             ))}
           </div>
