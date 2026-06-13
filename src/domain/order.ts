@@ -59,3 +59,26 @@ export type NewOrderInput = {
 export type OrderQueue = PendingOrder[];
 
 export type CustomerPriority = CustomerType.Vip | CustomerType.Normal;
+
+export function enqueuePendingOrder(
+  queue: OrderQueue,
+  order: PendingOrder
+): OrderQueue {
+  if (order.customerType === CustomerType.Normal) {
+    return [...queue, order];
+  }
+
+  const nextNormalOrderIndex = queue.findIndex(
+    (queuedOrder) => queuedOrder.customerType === CustomerType.Normal
+  );
+
+  if (nextNormalOrderIndex === -1) {
+    return [...queue, order];
+  }
+
+  return [
+    ...queue.slice(0, nextNormalOrderIndex),
+    order,
+    ...queue.slice(nextNormalOrderIndex)
+  ];
+}
