@@ -3,8 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Order Controller",
-  description: "A Next.js prototype for the restaurant order controller."
+  title: "BotKitchen Order Controller",
+  description: "A McDonald's automated order controller prototype."
 };
 
 export default function RootLayout({
@@ -18,11 +18,10 @@ export default function RootLayout({
         <div className="site-shell">
           <header className="site-header">
             <Link className="brand" href="/">
-              Order Controller
+              <span className="brand-mark">M</span>
+              <span>BotKitchen</span>
             </Link>
-            <nav className="nav" aria-label="Main navigation">
-              <Link href="/">Home</Link>
-            </nav>
+            <div className="operator-avatar" aria-label="Operator profile" />
           </header>
           {children}
         </div>
