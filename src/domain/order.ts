@@ -16,6 +16,7 @@ export type PendingOrder = {
   customerType: CustomerType;
   status: OrderStatus.Pending;
   createdAt: TimestampMs;
+  processingTimeMs: TimestampMs;
 };
 
 export type ProcessingOrder = {
@@ -23,6 +24,7 @@ export type ProcessingOrder = {
   customerType: CustomerType;
   status: OrderStatus.Processing;
   createdAt: TimestampMs;
+  processingTimeMs: TimestampMs;
   pickedUpAt: TimestampMs;
   completesAt: TimestampMs;
   botId: BotId;
@@ -33,6 +35,7 @@ export type CompleteOrder = {
   customerType: CustomerType;
   status: OrderStatus.Complete;
   createdAt: TimestampMs;
+  processingTimeMs: TimestampMs;
   pickedUpAt: TimestampMs;
   completedAt: TimestampMs;
   botId: BotId;
@@ -54,6 +57,7 @@ export type OrdersByStatus = {
 export type NewOrderInput = {
   customerType: CustomerType;
   createdAt: TimestampMs;
+  processingTimeMs: TimestampMs;
 };
 
 export type OrderQueue = PendingOrder[];

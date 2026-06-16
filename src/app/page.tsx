@@ -6,6 +6,7 @@ import {
   assignPendingOrdersToIdleBots,
   BotStatus,
   CustomerType,
+  ORDER_PROCESSING_TIME_MS,
   OrderStatus,
   completeProcessingOrders,
   enqueuePendingOrder,
@@ -17,6 +18,7 @@ import {
 } from "@/domain";
 
 const INITIAL_ORDER_ID = 1;
+const PROCESSING_TIME_OPTIONS_MS = [5_000, 10_000, 15_000] as const;
 
 type OrdersPageState = {
   bots: BotsByStatus;
@@ -43,6 +45,10 @@ function formatBotId(botId: number): string {
 
 function formatCustomerType(customerType: CustomerType): string {
   return customerType === CustomerType.Vip ? "VIP" : "Normal";
+}
+
+function formatProcessingTime(processingTimeMs: number): string {
+  return `${processingTimeMs / 1_000}s`;
 }
 
 function CustomerTypeBadge({ customerType }: { customerType: CustomerType }) {
@@ -170,6 +176,44 @@ function EmptyOrderState({
   );
 }
 
+function CookingTimeControl({
+  customerType,
+  onChange,
+  processingTimeMs
+}: {
+  customerType: CustomerType;
+  onChange: (customerType: CustomerType, processingTimeMs: number) => void;
+  processingTimeMs: number;
+}) {
+  const selectedIndex = PROCESSING_TIME_OPTIONS_MS.indexOf(
+    processingTimeMs as (typeof PROCESSING_TIME_OPTIONS_MS)[number]
+  );
+
+  return (
+    <label className="cooking-time-control">
+      <span>
+        {formatCustomerType(customerType)} cooking time:{" "}
+        <strong>{formatProcessingTime(processingTimeMs)}</strong>
+      </span>
+      <input
+        aria-valuetext={formatProcessingTime(processingTimeMs)}
+        type="range"
+        min="0"
+        max={PROCESSING_TIME_OPTIONS_MS.length - 1}
+        step="1"
+        value={selectedIndex === -1 ? 1 : selectedIndex}
+        onChange={(event) => {
+          onChange(
+            customerType,
+            PROCESSING_TIME_OPTIONS_MS[Number(event.target.value)] ??
+              ORDER_PROCESSING_TIME_MS
+          );
+        }}
+      />
+    </label>
+  );
+}
+
 export default function OrdersPage() {
   const [orderState, setOrderState] = useState<OrdersPageState>(() => ({
     bots: emptyBots(),
@@ -182,6 +226,11 @@ export default function OrdersPage() {
     nextBotId: 1,
     currentTime: Date.now()
   }));
+  const [processingTimesByCustomerType, setProcessingTimesByCustomerType] =
+    useState<Record<CustomerType, number>>(() => ({
+      [CustomerType.Normal]: ORDER_PROCESSING_TIME_MS,
+      [CustomerType.Vip]: ORDER_PROCESSING_TIME_MS
+    }));
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -224,8 +273,19 @@ export default function OrdersPage() {
   const currentPendingOrders = orderState.orders[OrderStatus.Pending];
   const currentCompletedOrders = orderState.orders[OrderStatus.Complete];
 
+  function changeProcessingTime(
+    customerType: CustomerType,
+    processingTimeMs: number
+  ) {
+    setProcessingTimesByCustomerType((currentProcessingTimes) => ({
+      ...currentProcessingTimes,
+      [customerType]: processingTimeMs
+    }));
+  }
+
   function createOrder(customerType: CustomerType) {
     const createdAt = Date.now();
+    const processingTimeMs = processingTimesByCustomerType[customerType];
 
     setOrderState((state) => {
       const orders: OrdersByStatus = {
@@ -236,7 +296,8 @@ export default function OrdersPage() {
             id: state.nextOrderId,
             customerType,
             status: OrderStatus.Pending,
-            createdAt
+            createdAt,
+            processingTimeMs
           }
         )
       };
@@ -362,6 +423,23 @@ export default function OrdersPage() {
               New VIP Order
             </button>
           </div>
+          <div
+            className="cooking-time-controls"
+            aria-label="Cooking duration controls"
+          >
+            <CookingTimeControl
+              customerType={CustomerType.Normal}
+              processingTimeMs={
+                processingTimesByCustomerType[CustomerType.Normal]
+              }
+              onChange={changeProcessingTime}
+            />
+            <CookingTimeControl
+              customerType={CustomerType.Vip}
+              processingTimeMs={processingTimesByCustomerType[CustomerType.Vip]}
+              onChange={changeProcessingTime}
+            />
+          </div>
         </div>
 
         <div className="bot-actions" aria-label="Bot controls">
@@ -462,6 +540,9 @@ export default function OrdersPage() {
                       <span>
                         Status <OrderStatusBadge status={order.status} />
                       </span>
+                      <span>
+                        Time {formatProcessingTime(order.processingTimeMs)}
+                      </span>
                     </div>
                   </article>
                 ))}
@@ -510,6 +591,9 @@ export default function OrdersPage() {
                       </span>
                       <span>
                         Status <OrderStatusBadge status={order.status} />
+                      </span>
+                      <span>
+                        Time {formatProcessingTime(order.processingTimeMs)}
                       </span>
                     </div>
                   </article>

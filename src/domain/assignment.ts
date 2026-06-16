@@ -20,7 +20,6 @@ export type AssignPendingOrdersInput = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
   pickedUpAt: TimestampMs;
-  processingTimeMs?: TimestampMs;
 };
 
 export type AssignPendingOrdersResult = {
@@ -32,7 +31,6 @@ export type CompleteProcessingOrdersInput = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
   completedAt: TimestampMs;
-  processingTimeMs?: TimestampMs;
 };
 
 export type CompleteProcessingOrdersResult = AssignPendingOrdersResult;
@@ -47,8 +45,7 @@ export type RemoveNewestBotResult = AssignPendingOrdersResult;
 export function assignPendingOrdersToIdleBots({
   bots,
   orders,
-  pickedUpAt,
-  processingTimeMs = ORDER_PROCESSING_TIME_MS
+  pickedUpAt
 }: AssignPendingOrdersInput): AssignPendingOrdersResult {
   const assignmentCount = Math.min(
     bots[BotStatus.Idle].length,
@@ -59,7 +56,6 @@ export function assignPendingOrdersToIdleBots({
     return { bots, orders };
   }
 
-  const completesAt = pickedUpAt + processingTimeMs;
   const assignedBots = bots[BotStatus.Idle].slice(0, assignmentCount);
   const assignedOrders = orders[OrderStatus.Pending].slice(0, assignmentCount);
 
@@ -68,7 +64,7 @@ export function assignPendingOrdersToIdleBots({
     status: BotStatus.Processing,
     orderId: assignedOrders[index].id,
     pickedUpAt,
-    completesAt
+    completesAt: pickedUpAt + assignedOrders[index].processingTimeMs
   }));
 
   const processingOrders: ProcessingOrder[] = assignedOrders.map(
@@ -76,7 +72,7 @@ export function assignPendingOrdersToIdleBots({
       ...order,
       status: OrderStatus.Processing,
       pickedUpAt,
-      completesAt,
+      completesAt: pickedUpAt + order.processingTimeMs,
       botId: assignedBots[index].id
     })
   );
@@ -100,8 +96,7 @@ export function assignPendingOrdersToIdleBots({
 export function completeProcessingOrders({
   bots,
   orders,
-  completedAt,
-  processingTimeMs
+  completedAt
 }: CompleteProcessingOrdersInput): CompleteProcessingOrdersResult {
   const completedOrders = orders[OrderStatus.Processing].filter(
     (order) => order.completesAt <= completedAt
@@ -111,8 +106,7 @@ export function completeProcessingOrders({
     return assignPendingOrdersToIdleBots({
       bots,
       orders,
-      pickedUpAt: completedAt,
-      processingTimeMs
+      pickedUpAt: completedAt
     });
   }
 
@@ -138,6 +132,7 @@ export function completeProcessingOrders({
         customerType: order.customerType,
         status: OrderStatus.Complete,
         createdAt: order.createdAt,
+        processingTimeMs: order.processingTimeMs,
         pickedUpAt: order.pickedUpAt,
         completedAt,
         botId: order.botId
@@ -153,8 +148,7 @@ export function completeProcessingOrders({
       )
     },
     orders: nextOrders,
-    pickedUpAt: completedAt,
-    processingTimeMs
+    pickedUpAt: completedAt
   });
 }
 
@@ -210,7 +204,8 @@ export function removeNewestBot({
         id: interruptedOrder.id,
         customerType: interruptedOrder.customerType,
         status: OrderStatus.Pending,
-        createdAt: interruptedOrder.createdAt
+        createdAt: interruptedOrder.createdAt,
+        processingTimeMs: interruptedOrder.processingTimeMs
       } satisfies PendingOrder)
     : orders[OrderStatus.Pending];
 

@@ -18,13 +18,15 @@ import {
 function pendingOrder(
   id: number,
   customerType: CustomerType,
-  createdAt = id
+  createdAt = id,
+  processingTimeMs = ORDER_PROCESSING_TIME_MS
 ): PendingOrder {
   return {
     id,
     customerType,
     status: OrderStatus.Pending,
-    createdAt
+    createdAt,
+    processingTimeMs
   };
 }
 
@@ -106,11 +108,57 @@ describe("bot assignment", () => {
         customerType: CustomerType.Normal,
         status: OrderStatus.Processing,
         createdAt: 100,
+        processingTimeMs: ORDER_PROCESSING_TIME_MS,
         pickedUpAt,
         completesAt: pickedUpAt + ORDER_PROCESSING_TIME_MS,
         botId: 1
       }
     ]);
+  });
+
+  it("uses each order's own processing time when assigning orders", () => {
+    const pickedUpAt = 1_000;
+    const normalProcessingTimeMs = 5_000;
+    const vipProcessingTimeMs = 15_000;
+    const result = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [
+          { id: 1, status: BotStatus.Idle, createdAt: 10 },
+          { id: 2, status: BotStatus.Idle, createdAt: 20 }
+        ],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Vip, 100, vipProcessingTimeMs),
+          pendingOrder(2, CustomerType.Normal, 200, normalProcessingTimeMs)
+        ]
+      },
+      pickedUpAt
+    });
+
+    assert.deepEqual(
+      result.orders[OrderStatus.Processing].map((order) => [
+        order.id,
+        order.processingTimeMs,
+        order.completesAt
+      ]),
+      [
+        [1, vipProcessingTimeMs, pickedUpAt + vipProcessingTimeMs],
+        [2, normalProcessingTimeMs, pickedUpAt + normalProcessingTimeMs]
+      ]
+    );
+    assert.deepEqual(
+      result.bots[BotStatus.Processing].map((bot) => [
+        bot.orderId,
+        bot.completesAt
+      ]),
+      [
+        [1, pickedUpAt + vipProcessingTimeMs],
+        [2, pickedUpAt + normalProcessingTimeMs]
+      ]
+    );
   });
 });
 
@@ -150,6 +198,7 @@ describe("order completion", () => {
         customerType: CustomerType.Normal,
         status: OrderStatus.Complete,
         createdAt: 100,
+        processingTimeMs: ORDER_PROCESSING_TIME_MS,
         pickedUpAt,
         completedAt: pickedUpAt + ORDER_PROCESSING_TIME_MS,
         botId: 1
@@ -189,6 +238,7 @@ describe("order completion", () => {
         customerType: CustomerType.Normal,
         status: OrderStatus.Complete,
         createdAt: 100,
+        processingTimeMs: ORDER_PROCESSING_TIME_MS,
         pickedUpAt,
         completedAt,
         botId: 1
@@ -200,6 +250,7 @@ describe("order completion", () => {
         customerType: CustomerType.Normal,
         status: OrderStatus.Processing,
         createdAt: 200,
+        processingTimeMs: ORDER_PROCESSING_TIME_MS,
         pickedUpAt: completedAt,
         completesAt: completedAt + ORDER_PROCESSING_TIME_MS,
         botId: 1
@@ -245,6 +296,7 @@ describe("bot removal", () => {
       customerType: CustomerType.Vip,
       status: OrderStatus.Processing,
       createdAt: 30,
+      processingTimeMs: ORDER_PROCESSING_TIME_MS,
       pickedUpAt,
       completesAt,
       botId: 2
@@ -291,6 +343,10 @@ describe("bot removal", () => {
       ]
     );
     assert.deepEqual(result.orders[OrderStatus.Processing], []);
+    assert.equal(
+      result.orders[OrderStatus.Pending][1].processingTimeMs,
+      ORDER_PROCESSING_TIME_MS
+    );
   });
 
   it("returns an interrupted VIP order before later VIP orders and normal orders", () => {
@@ -301,6 +357,7 @@ describe("bot removal", () => {
       customerType: CustomerType.Vip,
       status: OrderStatus.Processing,
       createdAt: 20,
+      processingTimeMs: ORDER_PROCESSING_TIME_MS,
       pickedUpAt,
       completesAt,
       botId: 1
@@ -339,7 +396,8 @@ describe("bot removal", () => {
       id: 2,
       customerType: CustomerType.Vip,
       status: OrderStatus.Pending,
-      createdAt: 20
+      createdAt: 20,
+      processingTimeMs: ORDER_PROCESSING_TIME_MS
     });
   });
 
@@ -351,6 +409,7 @@ describe("bot removal", () => {
       customerType: CustomerType.Normal,
       status: OrderStatus.Processing,
       createdAt: 20,
+      processingTimeMs: ORDER_PROCESSING_TIME_MS,
       pickedUpAt,
       completesAt,
       botId: 1
@@ -389,18 +448,21 @@ describe("bot removal", () => {
       id: 2,
       customerType: CustomerType.Normal,
       status: OrderStatus.Pending,
-      createdAt: 20
+      createdAt: 20,
+      processingTimeMs: ORDER_PROCESSING_TIME_MS
     });
   });
 
   it("does not complete a requeued processing order on its original timer", () => {
     const pickedUpAt = 1_000;
-    const originalCompletesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const processingTimeMs = 15_000;
+    const originalCompletesAt = pickedUpAt + processingTimeMs;
     const interruptedOrder = {
       id: 1,
       customerType: CustomerType.Normal,
       status: OrderStatus.Processing,
       createdAt: 100,
+      processingTimeMs,
       pickedUpAt,
       completesAt: originalCompletesAt,
       botId: 2
@@ -428,8 +490,12 @@ describe("bot removal", () => {
     });
 
     assert.deepEqual(removed.orders[OrderStatus.Pending], [
-      pendingOrder(1, CustomerType.Normal, 100)
+      pendingOrder(1, CustomerType.Normal, 100, processingTimeMs)
     ]);
+    assert.equal(
+      removed.orders[OrderStatus.Pending][0].processingTimeMs,
+      processingTimeMs
+    );
     assert.deepEqual(removed.orders[OrderStatus.Processing], []);
 
     const restarted = completeProcessingOrders({
@@ -445,8 +511,9 @@ describe("bot removal", () => {
         customerType: CustomerType.Normal,
         status: OrderStatus.Processing,
         createdAt: 100,
+        processingTimeMs,
         pickedUpAt: originalCompletesAt,
-        completesAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS,
+        completesAt: originalCompletesAt + processingTimeMs,
         botId: 1
       }
     ]);
@@ -457,13 +524,13 @@ describe("bot removal", () => {
         createdAt: 10,
         orderId: 1,
         pickedUpAt: originalCompletesAt,
-        completesAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS
+        completesAt: originalCompletesAt + processingTimeMs
       }
     ]);
 
     const originalTimerElapsedAgain = completeProcessingOrders({
       ...restarted,
-      completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS - 1
+      completedAt: originalCompletesAt + processingTimeMs - 1
     });
 
     assert.deepEqual(
@@ -477,7 +544,7 @@ describe("bot removal", () => {
 
     const completedAfterRestartedTimer = completeProcessingOrders({
       ...originalTimerElapsedAgain,
-      completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS
+      completedAt: originalCompletesAt + processingTimeMs
     });
 
     assert.deepEqual(
@@ -488,8 +555,9 @@ describe("bot removal", () => {
           customerType: CustomerType.Normal,
           status: OrderStatus.Complete,
           createdAt: 100,
+          processingTimeMs,
           pickedUpAt: originalCompletesAt,
-          completedAt: originalCompletesAt + ORDER_PROCESSING_TIME_MS,
+          completedAt: originalCompletesAt + processingTimeMs,
           botId: 1
         }
       ]

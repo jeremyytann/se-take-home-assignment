@@ -140,6 +140,49 @@ h1 {
   gap: 20px;
 }
 
+.order-controls {
+  min-width: 0;
+}
+
+.cooking-time-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  margin-top: 14px;
+}
+
+.cooking-time-control {
+  display: grid;
+  width: 260px;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cooking-time-control span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  line-height: 1.2;
+}
+
+.cooking-time-control strong {
+  color: var(--text);
+}
+
+.cooking-time-control input {
+  width: 100%;
+  accent-color: var(--gold-dark);
+  cursor: pointer;
+}
+
+.cooking-time-control input:focus-visible {
+  outline: 3px solid rgba(255, 199, 44, 0.5);
+  outline-offset: 4px;
+}
+
 .bot-actions {
   justify-content: flex-end;
   padding-bottom: 1px;
@@ -679,6 +722,20 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .site-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .site-header {
     min-height: 54px;
   }
@@ -697,7 +754,11 @@ h1 {
   }
 
   .controller-page {
+    height: auto;
+    min-height: 0;
+    grid-template-rows: auto auto auto;
     gap: 10px;
+    overflow: visible;
     padding: 12px 12px 14px;
   }
 
@@ -706,6 +767,17 @@ h1 {
   }
 
   .order-controls {
+    width: 100%;
+  }
+
+  .cooking-time-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .cooking-time-control {
     width: 100%;
   }
 
@@ -747,16 +819,37 @@ h1 {
     font-size: 15px;
   }
 
+  .bots-section {
+    display: grid;
+    height: 212px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .bot-strip {
+    min-height: 0;
+  }
+
   .bot-card {
     flex-basis: 236px;
     min-height: 132px;
     padding: 12px 14px;
   }
 
+  .empty-bot-list {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   .order-columns {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: none;
     gap: 10px;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .queue-panel {
+    height: 360px;
   }
 
   .pending-grid,
