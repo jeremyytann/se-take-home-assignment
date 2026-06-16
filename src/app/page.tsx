@@ -9,10 +9,13 @@ import {
   OrderStatus,
   completeProcessingOrders,
   enqueuePendingOrder,
+  pauseBot,
   removeNewestBot,
+  resumeBot,
   type Bot,
   type BotsByStatus,
   type OrdersByStatus,
+  type PausedProcessingBot,
   type PendingOrder
 } from "@/domain";
 
@@ -29,7 +32,8 @@ type OrdersPageState = {
 function emptyBots(): BotsByStatus {
   return {
     [BotStatus.Idle]: [],
-    [BotStatus.Processing]: []
+    [BotStatus.Processing]: [],
+    [BotStatus.Paused]: []
   };
 }
 
@@ -70,6 +74,10 @@ function formatOrderStatus(status: BotStatus | OrderStatus): string {
 function formatRemainingTime(completesAt: number, currentTime: number): string {
   const remainingMs = Math.max(0, completesAt - currentTime);
 
+  return formatRemainingMs(remainingMs);
+}
+
+function formatRemainingMs(remainingMs: number): string {
   if (remainingMs === 0) {
     return "finishing";
   }
@@ -150,6 +158,27 @@ function CheckIcon() {
   );
 }
 
+function PauseIcon() {
+  return (
+    <svg aria-hidden="true" className="icon" viewBox="0 0 24 24">
+      <path d="M9 6v12" />
+      <path d="M15 6v12" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg aria-hidden="true" className="icon" viewBox="0 0 24 24">
+      <path d="m8 5 11 7-11 7V5Z" />
+    </svg>
+  );
+}
+
+function isPausedProcessingBot(bot: Bot): bot is PausedProcessingBot {
+  return bot.status === BotStatus.Paused && "orderId" in bot;
+}
+
 function EmptyOrderState({
   message,
   title,
@@ -205,7 +234,8 @@ export default function OrdersPage() {
     () =>
       [
         ...orderState.bots[BotStatus.Idle],
-        ...orderState.bots[BotStatus.Processing]
+        ...orderState.bots[BotStatus.Processing],
+        ...orderState.bots[BotStatus.Paused]
       ].sort((firstBot, secondBot) => firstBot.id - secondBot.id),
     [orderState.bots]
   );
@@ -296,6 +326,26 @@ export default function OrdersPage() {
     }));
   }
 
+  function toggleBotPause(bot: Bot) {
+    setOrderState((state) => ({
+      ...state,
+      ...(bot.status === BotStatus.Paused
+        ? resumeBot({
+            bots: state.bots,
+            orders: state.orders,
+            botId: bot.id,
+            resumedAt: state.currentTime
+          })
+        : pauseBot({
+            bots: state.bots,
+            orders: state.orders,
+            botId: bot.id,
+            pausedAt: state.currentTime
+          })),
+      currentTime: state.currentTime
+    }));
+  }
+
   function renderBotWork(bot: Bot) {
     if (bot.status === BotStatus.Idle) {
       return (
@@ -312,7 +362,48 @@ export default function OrdersPage() {
       );
     }
 
+    if (bot.status === BotStatus.Paused && !isPausedProcessingBot(bot)) {
+      return (
+        <>
+          <div className="bot-work idle-work">
+            <span>Paused</span>
+            <strong>No order</strong>
+          </div>
+          <div className="progress-track paused" aria-hidden="true">
+            <span />
+          </div>
+          <p>Stopped until resumed</p>
+        </>
+      );
+    }
+
     const order = processingOrdersById.get(bot.orderId);
+
+    if (bot.status === BotStatus.Paused) {
+      return (
+        <>
+          <div className="bot-work">
+            <span>Paused</span>
+            <strong>
+              #{formatOrderId(bot.orderId)}
+              {order?.customerType === CustomerType.Vip ? <StarIcon /> : null}
+            </strong>
+          </div>
+          <div className="progress-track paused" aria-hidden="true">
+            <span
+              style={{
+                width: `${getProgress(
+                  bot.pickedUpAt,
+                  bot.completesAt,
+                  bot.pausedAt
+                )}%`
+              }}
+            />
+          </div>
+          <p>{formatRemainingMs(bot.remainingMs)}</p>
+        </>
+      );
+    }
 
     return (
       <>
@@ -398,9 +489,7 @@ export default function OrdersPage() {
             <div className="bot-grid">
               {botList.map((bot) => (
                 <article
-                  className={`bot-card ${
-                    bot.status === BotStatus.Idle ? "idle" : "processing"
-                  }`}
+                  className={`bot-card ${bot.status.toLowerCase()}`}
                   key={bot.id}
                 >
                   <div className="bot-card-top">
@@ -408,13 +497,27 @@ export default function OrdersPage() {
                       <BotIcon />
                       <span>{formatBotId(bot.id)}</span>
                     </div>
-                    <span
-                      className={`status-badge ${
-                        bot.status === BotStatus.Idle ? "idle" : "processing"
-                      }`}
-                    >
-                      {formatOrderStatus(bot.status)}
-                    </span>
+                    <div className="bot-card-actions">
+                      <span
+                        className={`status-badge ${bot.status.toLowerCase()}`}
+                      >
+                        {formatOrderStatus(bot.status)}
+                      </span>
+                      <button
+                        aria-label={`${
+                          bot.status === BotStatus.Paused ? "Resume" : "Pause"
+                        } ${formatBotId(bot.id)}`}
+                        className="bot-toggle-button"
+                        type="button"
+                        onClick={() => toggleBotPause(bot)}
+                      >
+                        {bot.status === BotStatus.Paused ? (
+                          <PlayIcon />
+                        ) : (
+                          <PauseIcon />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   {renderBotWork(bot)}
                 </article>

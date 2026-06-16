@@ -312,6 +312,12 @@ h1 {
   gap: 12px;
 }
 
+.bot-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .bot-name {
   gap: 12px;
   font-size: 17px;
@@ -333,6 +339,44 @@ h1 {
 
 .status-badge.processing {
   background: #f3bd20;
+}
+
+.status-badge.paused {
+  border: 1px solid var(--border-strong);
+  background: #ded8c9;
+  color: #473f2e;
+}
+
+.bot-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: #fbfaf5;
+  color: var(--muted);
+  padding: 0;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+}
+
+.bot-toggle-button:hover {
+  border-color: var(--gold-dark);
+  background: #fff6d4;
+}
+
+.bot-toggle-button:focus-visible {
+  outline: 3px solid rgba(255, 199, 44, 0.5);
+  outline-offset: 3px;
+}
+
+.bot-toggle-button .icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 3;
 }
 
 .bot-work {
@@ -393,12 +437,21 @@ h1 {
   background: #aaa18a;
 }
 
+.progress-track.paused span {
+  background: #817661;
+}
+
 .bot-card p {
   font-size: 12px;
 }
 
 .bot-card.idle {
   border-color: #b7aa8b;
+}
+
+.bot-card.paused {
+  border-color: var(--border-strong);
+  background: #e8e4d9;
 }
 
 .empty-bot-list {

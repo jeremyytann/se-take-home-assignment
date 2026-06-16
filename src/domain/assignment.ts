@@ -1,7 +1,10 @@
 import {
   BotStatus,
+  type Bot,
   type BotsByStatus,
   type IdleBot,
+  type PausedBot,
+  type PausedProcessingBot,
   type ProcessingBot
 } from "./bot";
 import {
@@ -44,6 +47,25 @@ export type RemoveNewestBotInput = {
 
 export type RemoveNewestBotResult = AssignPendingOrdersResult;
 
+export type PauseBotInput = {
+  bots: BotsByStatus;
+  orders: OrdersByStatus;
+  botId: number;
+  pausedAt: TimestampMs;
+};
+
+export type PauseBotResult = AssignPendingOrdersResult;
+
+export type ResumeBotInput = {
+  bots: BotsByStatus;
+  orders: OrdersByStatus;
+  botId: number;
+  resumedAt: TimestampMs;
+  processingTimeMs?: TimestampMs;
+};
+
+export type ResumeBotResult = AssignPendingOrdersResult;
+
 export function assignPendingOrdersToIdleBots({
   bots,
   orders,
@@ -84,7 +106,11 @@ export function assignPendingOrdersToIdleBots({
   return {
     bots: {
       [BotStatus.Idle]: bots[BotStatus.Idle].slice(assignmentCount),
-      [BotStatus.Processing]: [...bots[BotStatus.Processing], ...processingBots]
+      [BotStatus.Processing]: [
+        ...bots[BotStatus.Processing],
+        ...processingBots
+      ],
+      [BotStatus.Paused]: bots[BotStatus.Paused]
     },
     orders: {
       [OrderStatus.Pending]: orders[OrderStatus.Pending].slice(assignmentCount),
@@ -103,8 +129,12 @@ export function completeProcessingOrders({
   completedAt,
   processingTimeMs
 }: CompleteProcessingOrdersInput): CompleteProcessingOrdersResult {
+  const activeProcessingOrderIds = new Set(
+    bots[BotStatus.Processing].map((bot) => bot.orderId)
+  );
   const completedOrders = orders[OrderStatus.Processing].filter(
-    (order) => order.completesAt <= completedAt
+    (order) =>
+      activeProcessingOrderIds.has(order.id) && order.completesAt <= completedAt
   );
 
   if (completedOrders.length === 0) {
@@ -150,7 +180,8 @@ export function completeProcessingOrders({
       [BotStatus.Idle]: [...bots[BotStatus.Idle], ...idleBots],
       [BotStatus.Processing]: bots[BotStatus.Processing].filter(
         (bot) => !completedOrderIds.has(bot.orderId)
-      )
+      ),
+      [BotStatus.Paused]: bots[BotStatus.Paused]
     },
     orders: nextOrders,
     pickedUpAt: completedAt,
@@ -164,8 +195,9 @@ export function removeNewestBot({
 }: RemoveNewestBotInput): RemoveNewestBotResult {
   const newestBot = [
     ...bots[BotStatus.Idle],
-    ...bots[BotStatus.Processing]
-  ].reduce<IdleBot | ProcessingBot | undefined>((newest, bot) => {
+    ...bots[BotStatus.Processing],
+    ...bots[BotStatus.Paused]
+  ].reduce<Bot | undefined>((newest, bot) => {
     if (!newest) {
       return bot;
     }
@@ -191,7 +223,24 @@ export function removeNewestBot({
         [BotStatus.Idle]: bots[BotStatus.Idle].filter(
           (bot) => bot.id !== newestBot.id
         ),
-        [BotStatus.Processing]: bots[BotStatus.Processing]
+        [BotStatus.Processing]: bots[BotStatus.Processing],
+        [BotStatus.Paused]: bots[BotStatus.Paused]
+      },
+      orders
+    };
+  }
+
+  if (
+    newestBot.status === BotStatus.Paused &&
+    !isPausedProcessingBot(newestBot)
+  ) {
+    return {
+      bots: {
+        [BotStatus.Idle]: bots[BotStatus.Idle],
+        [BotStatus.Processing]: bots[BotStatus.Processing],
+        [BotStatus.Paused]: bots[BotStatus.Paused].filter(
+          (bot) => bot.id !== newestBot.id
+        )
       },
       orders
     };
@@ -219,6 +268,9 @@ export function removeNewestBot({
       [BotStatus.Idle]: bots[BotStatus.Idle],
       [BotStatus.Processing]: bots[BotStatus.Processing].filter(
         (bot) => bot.id !== newestBot.id
+      ),
+      [BotStatus.Paused]: bots[BotStatus.Paused].filter(
+        (bot) => bot.id !== newestBot.id
       )
     },
     orders: {
@@ -227,4 +279,144 @@ export function removeNewestBot({
       [OrderStatus.Complete]: orders[OrderStatus.Complete]
     }
   };
+}
+
+export function pauseBot({
+  bots,
+  orders,
+  botId,
+  pausedAt
+}: PauseBotInput): PauseBotResult {
+  const idleBot = bots[BotStatus.Idle].find((bot) => bot.id === botId);
+
+  if (idleBot) {
+    return {
+      bots: {
+        [BotStatus.Idle]: bots[BotStatus.Idle].filter(
+          (bot) => bot.id !== botId
+        ),
+        [BotStatus.Processing]: bots[BotStatus.Processing],
+        [BotStatus.Paused]: [
+          ...bots[BotStatus.Paused],
+          {
+            id: idleBot.id,
+            status: BotStatus.Paused,
+            createdAt: idleBot.createdAt,
+            pausedAt
+          }
+        ]
+      },
+      orders
+    };
+  }
+
+  const processingBot = bots[BotStatus.Processing].find(
+    (bot) => bot.id === botId
+  );
+
+  if (!processingBot) {
+    return { bots, orders };
+  }
+
+  const elapsedMs = Math.max(0, pausedAt - processingBot.pickedUpAt);
+  const remainingMs = Math.max(0, processingBot.completesAt - pausedAt);
+
+  return {
+    bots: {
+      [BotStatus.Idle]: bots[BotStatus.Idle],
+      [BotStatus.Processing]: bots[BotStatus.Processing].filter(
+        (bot) => bot.id !== botId
+      ),
+      [BotStatus.Paused]: [
+        ...bots[BotStatus.Paused],
+        {
+          id: processingBot.id,
+          status: BotStatus.Paused,
+          createdAt: processingBot.createdAt,
+          orderId: processingBot.orderId,
+          pickedUpAt: processingBot.pickedUpAt,
+          completesAt: processingBot.completesAt,
+          pausedAt,
+          elapsedMs,
+          remainingMs
+        }
+      ]
+    },
+    orders
+  };
+}
+
+export function resumeBot({
+  bots,
+  orders,
+  botId,
+  resumedAt,
+  processingTimeMs
+}: ResumeBotInput): ResumeBotResult {
+  const pausedBot = bots[BotStatus.Paused].find((bot) => bot.id === botId);
+
+  if (!pausedBot) {
+    return { bots, orders };
+  }
+
+  const nextPausedBots = bots[BotStatus.Paused].filter(
+    (bot) => bot.id !== botId
+  );
+
+  if (!isPausedProcessingBot(pausedBot)) {
+    return assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [
+          ...bots[BotStatus.Idle],
+          {
+            id: pausedBot.id,
+            status: BotStatus.Idle,
+            createdAt: pausedBot.createdAt
+          }
+        ],
+        [BotStatus.Processing]: bots[BotStatus.Processing],
+        [BotStatus.Paused]: nextPausedBots
+      },
+      orders,
+      pickedUpAt: resumedAt,
+      processingTimeMs
+    });
+  }
+
+  const pickedUpAt = resumedAt - pausedBot.elapsedMs;
+  const completesAt = resumedAt + pausedBot.remainingMs;
+  const resumedBot: ProcessingBot = {
+    id: pausedBot.id,
+    status: BotStatus.Processing,
+    createdAt: pausedBot.createdAt,
+    orderId: pausedBot.orderId,
+    pickedUpAt,
+    completesAt
+  };
+  const nextOrders: OrdersByStatus = {
+    [OrderStatus.Pending]: orders[OrderStatus.Pending],
+    [OrderStatus.Processing]: orders[OrderStatus.Processing].map((order) =>
+      order.id === pausedBot.orderId
+        ? {
+            ...order,
+            pickedUpAt,
+            completesAt
+          }
+        : order
+    ),
+    [OrderStatus.Complete]: orders[OrderStatus.Complete]
+  };
+
+  return {
+    bots: {
+      [BotStatus.Idle]: bots[BotStatus.Idle],
+      [BotStatus.Processing]: [...bots[BotStatus.Processing], resumedBot],
+      [BotStatus.Paused]: nextPausedBots
+    },
+    orders: nextOrders
+  };
+}
+
+function isPausedProcessingBot(bot: PausedBot): bot is PausedProcessingBot {
+  return "orderId" in bot;
 }

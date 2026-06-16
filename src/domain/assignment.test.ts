@@ -9,7 +9,9 @@ import {
   enqueuePendingOrder,
   ORDER_PROCESSING_TIME_MS,
   OrderStatus,
+  pauseBot,
   removeNewestBot,
+  resumeBot,
   type BotsByStatus,
   type OrdersByStatus,
   type PendingOrder
@@ -79,7 +81,8 @@ describe("bot assignment", () => {
     const result = assignPendingOrdersToIdleBots({
       bots: {
         [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
-        [BotStatus.Processing]: []
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
       },
       orders: {
         ...emptyOrders(),
@@ -120,7 +123,8 @@ describe("order completion", () => {
     const assigned = assignPendingOrdersToIdleBots({
       bots: {
         [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
-        [BotStatus.Processing]: []
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
       },
       orders: {
         ...emptyOrders(),
@@ -166,7 +170,8 @@ describe("order completion", () => {
     const assigned = assignPendingOrdersToIdleBots({
       bots: {
         [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
-        [BotStatus.Processing]: []
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
       },
       orders: {
         ...emptyOrders(),
@@ -218,6 +223,237 @@ describe("order completion", () => {
   });
 });
 
+describe("bot pause and resume", () => {
+  it("does not assign pending work to a paused idle bot", () => {
+    const paused = pauseBot({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
+      },
+      orders: emptyOrders(),
+      botId: 1,
+      pausedAt: 1_000
+    });
+
+    const result = assignPendingOrdersToIdleBots({
+      bots: paused.bots,
+      orders: {
+        ...paused.orders,
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt: 2_000
+    });
+
+    assert.deepEqual(result.orders[OrderStatus.Pending], [
+      pendingOrder(1, CustomerType.Normal, 100)
+    ]);
+    assert.deepEqual(result.bots[BotStatus.Processing], []);
+    assert.deepEqual(result.bots[BotStatus.Paused], [
+      {
+        id: 1,
+        status: BotStatus.Paused,
+        createdAt: 10,
+        pausedAt: 1_000
+      }
+    ]);
+  });
+
+  it("resumes an idle bot and immediately assigns pending work", () => {
+    const resumedAt = 3_000;
+    const result = resumeBot({
+      bots: {
+        [BotStatus.Idle]: [],
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: [
+          {
+            id: 1,
+            status: BotStatus.Paused,
+            createdAt: 10,
+            pausedAt: 1_000
+          }
+        ]
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      botId: 1,
+      resumedAt
+    });
+
+    assert.deepEqual(result.orders[OrderStatus.Pending], []);
+    assert.deepEqual(result.bots[BotStatus.Paused], []);
+    assert.deepEqual(result.bots[BotStatus.Processing], [
+      {
+        id: 1,
+        status: BotStatus.Processing,
+        createdAt: 10,
+        orderId: 1,
+        pickedUpAt: resumedAt,
+        completesAt: resumedAt + ORDER_PROCESSING_TIME_MS
+      }
+    ]);
+  });
+
+  it("does not complete a paused processing bot on the original timer", () => {
+    const pickedUpAt = 1_000;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+    const pausedAt = pickedUpAt + 4_000;
+    const paused = pauseBot({
+      ...assigned,
+      botId: 1,
+      pausedAt
+    });
+
+    const result = completeProcessingOrders({
+      ...paused,
+      completedAt: pickedUpAt + ORDER_PROCESSING_TIME_MS
+    });
+
+    assert.deepEqual(result.orders[OrderStatus.Complete], []);
+    assert.equal(result.orders[OrderStatus.Processing].length, 1);
+    assert.deepEqual(result.bots[BotStatus.Processing], []);
+    assert.deepEqual(result.bots[BotStatus.Paused], [
+      {
+        id: 1,
+        status: BotStatus.Paused,
+        createdAt: 10,
+        orderId: 1,
+        pickedUpAt,
+        completesAt: pickedUpAt + ORDER_PROCESSING_TIME_MS,
+        pausedAt,
+        elapsedMs: 4_000,
+        remainingMs: 6_000
+      }
+    ]);
+  });
+
+  it("resumes a processing bot with only the paused order time remaining", () => {
+    const pickedUpAt = 1_000;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+    const paused = pauseBot({
+      ...assigned,
+      botId: 1,
+      pausedAt: pickedUpAt + 4_000
+    });
+    const resumedAt = 20_000;
+    const resumed = resumeBot({
+      ...paused,
+      botId: 1,
+      resumedAt
+    });
+
+    assert.deepEqual(resumed.orders[OrderStatus.Processing], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Processing,
+        createdAt: 100,
+        pickedUpAt: resumedAt - 4_000,
+        completesAt: resumedAt + 6_000,
+        botId: 1
+      }
+    ]);
+
+    const tooEarly = completeProcessingOrders({
+      ...resumed,
+      completedAt: resumedAt + 6_000 - 1
+    });
+
+    assert.deepEqual(tooEarly.orders[OrderStatus.Complete], []);
+
+    const completed = completeProcessingOrders({
+      ...tooEarly,
+      completedAt: resumedAt + 6_000
+    });
+
+    assert.deepEqual(completed.orders[OrderStatus.Complete], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Complete,
+        createdAt: 100,
+        pickedUpAt: resumedAt - 4_000,
+        completedAt: resumedAt + 6_000,
+        botId: 1
+      }
+    ]);
+  });
+
+  it("removes a paused processing bot and requeues its order by priority", () => {
+    const pickedUpAt = 1_000;
+    const completesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const pausedAt = pickedUpAt + 3_000;
+    const interruptedOrder = {
+      id: 2,
+      customerType: CustomerType.Vip,
+      status: OrderStatus.Processing,
+      createdAt: 20,
+      pickedUpAt,
+      completesAt,
+      botId: 1
+    } as const;
+
+    const result = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [],
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: [
+          {
+            id: 1,
+            status: BotStatus.Paused,
+            createdAt: 10,
+            orderId: interruptedOrder.id,
+            pickedUpAt,
+            completesAt,
+            pausedAt,
+            elapsedMs: 3_000,
+            remainingMs: 7_000
+          }
+        ]
+      },
+      orders: {
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Vip, 10),
+          pendingOrder(3, CustomerType.Normal, 30)
+        ],
+        [OrderStatus.Processing]: [interruptedOrder],
+        [OrderStatus.Complete]: []
+      }
+    });
+
+    assert.deepEqual(result.bots[BotStatus.Paused], []);
+    assert.deepEqual(result.orders[OrderStatus.Processing], []);
+    assert.deepEqual(
+      result.orders[OrderStatus.Pending].map((order) => order.id),
+      [1, 2, 3]
+    );
+  });
+});
+
 describe("bot removal", () => {
   it("removes the newest idle bot", () => {
     const result = removeNewestBot({
@@ -226,7 +462,8 @@ describe("bot removal", () => {
           { id: 1, status: BotStatus.Idle, createdAt: 10 },
           { id: 2, status: BotStatus.Idle, createdAt: 20 }
         ],
-        [BotStatus.Processing]: []
+        [BotStatus.Processing]: [],
+        [BotStatus.Paused]: []
       },
       orders: emptyOrders()
     });
@@ -262,7 +499,8 @@ describe("bot removal", () => {
             pickedUpAt,
             completesAt
           }
-        ]
+        ],
+        [BotStatus.Paused]: []
       },
       orders: {
         [OrderStatus.Pending]: [
@@ -318,7 +556,8 @@ describe("bot removal", () => {
             pickedUpAt,
             completesAt
           }
-        ]
+        ],
+        [BotStatus.Paused]: []
       },
       orders: {
         [OrderStatus.Pending]: [
@@ -368,7 +607,8 @@ describe("bot removal", () => {
             pickedUpAt,
             completesAt
           }
-        ]
+        ],
+        [BotStatus.Paused]: []
       },
       orders: {
         [OrderStatus.Pending]: [
@@ -418,7 +658,8 @@ describe("bot removal", () => {
             pickedUpAt,
             completesAt: originalCompletesAt
           }
-        ]
+        ],
+        [BotStatus.Paused]: []
       },
       orders: {
         [OrderStatus.Pending]: [],
