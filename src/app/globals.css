@@ -68,8 +68,11 @@ a {
 
 .site-header-inner {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   max-width: 1520px;
+  gap: 20px;
   margin: 0 auto;
   padding: 8px 32px;
 }
@@ -96,6 +99,47 @@ a {
   font-family: Georgia, serif;
   font-size: 26px;
   font-weight: 700;
+}
+
+.header-reset-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.header-reset-button:hover {
+  border-color: var(--red);
+  background: #fff5f3;
+  color: var(--red-dark);
+}
+
+.header-reset-button:focus-visible {
+  outline: 3px solid rgba(220, 43, 34, 0.22);
+  outline-offset: 3px;
+}
+
+.header-reset-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .controller-page {

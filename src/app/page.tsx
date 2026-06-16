@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ORDER_CONTROLLER_RESET_EVENT } from "./HeaderResetButton";
+
 import {
   assignPendingOrdersToIdleBots,
   BotStatus,
@@ -223,6 +225,26 @@ export default function OrdersPage() {
     window.localStorage.setItem(ORDER_CONTROLLER_STORAGE_KEY, serializedState);
     lastSavedState.current = serializedState;
   }, [hasHydrated, orderState]);
+
+  useEffect(() => {
+    function resetControllerState() {
+      const resetAt = Date.now();
+      const initialState = createInitialOrderControllerState(resetAt);
+      const serializedState = serializeOrderControllerState(initialState);
+
+      lastSavedState.current = serializedState;
+      setOrderState(initialState);
+    }
+
+    window.addEventListener(ORDER_CONTROLLER_RESET_EVENT, resetControllerState);
+
+    return () => {
+      window.removeEventListener(
+        ORDER_CONTROLLER_RESET_EVENT,
+        resetControllerState
+      );
+    };
+  }, []);
 
   const botList = useMemo(
     () =>

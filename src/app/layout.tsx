@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HeaderResetButton } from "./HeaderResetButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({
                 <span className="brand-mark">M</span>
                 <span>McDonald&apos;s</span>
               </Link>
+              <HeaderResetButton />
             </div>
           </header>
           {children}
