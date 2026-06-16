@@ -292,7 +292,7 @@ h1 {
 .bot-card {
   display: flex;
   flex: 0 0 280px;
-  min-height: 146px;
+  min-height: 170px;
   flex-direction: column;
   justify-content: space-between;
   border: 2px solid var(--gold);
@@ -378,6 +378,7 @@ h1 {
 .progress-track {
   overflow: hidden;
   height: 10px;
+  margin-bottom: 8px;
   border-radius: 999px;
   background: var(--track);
 }
@@ -515,7 +516,7 @@ h1 {
 .order-tile {
   position: relative;
   display: grid;
-  min-height: 106px;
+  min-height: 126px;
   align-content: start;
   gap: 7px;
   overflow: hidden;
@@ -575,6 +576,44 @@ h1 {
 .order-meta b {
   color: var(--text);
   font-size: 13px;
+}
+
+.time-rows {
+  display: grid;
+  gap: 3px;
+  margin: 2px 0 0;
+}
+
+.time-rows.bot {
+  margin-top: 0;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: minmax(68px, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.time-row dt,
+.time-row dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.time-row dt {
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.time-row dd {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .customer-type-badge,

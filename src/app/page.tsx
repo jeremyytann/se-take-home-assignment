@@ -45,6 +45,34 @@ function formatCustomerType(customerType: CustomerType): string {
   return customerType === CustomerType.Vip ? "VIP" : "Normal";
 }
 
+function formatTimestamp(timestampMs: number): string {
+  return new Date(timestampMs).toLocaleTimeString([], {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+function TimeRows({
+  items,
+  variant = "order"
+}: {
+  items: { label: string; timestamp: number }[];
+  variant?: "bot" | "order";
+}) {
+  return (
+    <dl className={`time-rows ${variant}`}>
+      {items.map((item) => (
+        <div className="time-row" key={item.label}>
+          <dt>{item.label}</dt>
+          <dd>{formatTimestamp(item.timestamp)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function CustomerTypeBadge({ customerType }: { customerType: CustomerType }) {
   const isVip = customerType === CustomerType.Vip;
 
@@ -334,6 +362,15 @@ export default function OrdersPage() {
             }}
           />
         </div>
+        {order ? (
+          <TimeRows
+            variant="bot"
+            items={[
+              { label: "Created", timestamp: order.createdAt },
+              { label: "Picked up", timestamp: bot.pickedUpAt }
+            ]}
+          />
+        ) : null}
         <p>{formatRemainingTime(bot.completesAt, orderState.currentTime)}</p>
       </>
     );
@@ -463,6 +500,9 @@ export default function OrdersPage() {
                         Status <OrderStatusBadge status={order.status} />
                       </span>
                     </div>
+                    <TimeRows
+                      items={[{ label: "Created", timestamp: order.createdAt }]}
+                    />
                   </article>
                 ))}
               </div>
@@ -512,6 +552,13 @@ export default function OrdersPage() {
                         Status <OrderStatusBadge status={order.status} />
                       </span>
                     </div>
+                    <TimeRows
+                      items={[
+                        { label: "Created", timestamp: order.createdAt },
+                        { label: "Picked up", timestamp: order.pickedUpAt },
+                        { label: "Completed", timestamp: order.completedAt }
+                      ]}
+                    />
                   </article>
                 ))}
               </div>
