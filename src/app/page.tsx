@@ -157,12 +157,18 @@ function EmptyOrderState({
 }: {
   message: string;
   title: string;
-  variant: "pending" | "complete";
+  variant: "pending" | "processing" | "complete";
 }) {
   return (
     <div className={`order-empty-state ${variant}`}>
       <div className="empty-state-icon" aria-hidden="true">
-        {variant === "pending" ? <QueueIcon /> : <CheckIcon />}
+        {variant === "pending" ? (
+          <QueueIcon />
+        ) : variant === "processing" ? (
+          <BotIcon />
+        ) : (
+          <CheckIcon />
+        )}
       </div>
       <strong>{title}</strong>
       <p>{message}</p>
@@ -222,6 +228,7 @@ export default function OrdersPage() {
   );
 
   const currentPendingOrders = orderState.orders[OrderStatus.Pending];
+  const currentProcessingOrders = orderState.orders[OrderStatus.Processing];
   const currentCompletedOrders = orderState.orders[OrderStatus.Complete];
 
   function createOrder(customerType: CustomerType) {
@@ -471,6 +478,71 @@ export default function OrdersPage() {
                 variant="pending"
                 title="No pending orders"
                 message="New orders will appear here until a bot picks them up."
+              />
+            )}
+          </div>
+        </section>
+
+        <section
+          className="queue-panel processing-panel"
+          aria-labelledby="processing-title"
+        >
+          <header className="panel-heading">
+            <div className="panel-title">
+              <BotIcon />
+              <h2 id="processing-title">Processing</h2>
+            </div>
+            <span className="count-badge warning">
+              {currentProcessingOrders.length}
+            </span>
+          </header>
+          <div className="queue-panel-body">
+            {currentProcessingOrders.length > 0 ? (
+              <div className="processing-grid">
+                {currentProcessingOrders.map((order) => (
+                  <article
+                    className={`order-tile processing ${
+                      order.customerType === CustomerType.Vip ? "vip" : "normal"
+                    }`}
+                    key={order.id}
+                  >
+                    <span className="order-label">Order</span>
+                    <strong>#{formatOrderId(order.id)}</strong>
+                    <div className="order-meta">
+                      <span>
+                        Type{" "}
+                        <CustomerTypeBadge customerType={order.customerType} />
+                      </span>
+                      <span>
+                        Status <OrderStatusBadge status={order.status} />
+                      </span>
+                      <span>Bot {formatBotId(order.botId)}</span>
+                      <span>
+                        {formatRemainingTime(
+                          order.completesAt,
+                          orderState.currentTime
+                        )}
+                      </span>
+                    </div>
+                    <div className="progress-track" aria-hidden="true">
+                      <span
+                        style={{
+                          width: `${getProgress(
+                            order.pickedUpAt,
+                            order.completesAt,
+                            orderState.currentTime
+                          )}%`
+                        }}
+                      />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyOrderState
+                variant="processing"
+                title="No processing orders"
+                message="Orders will appear here while a bot is preparing them."
               />
             )}
           </div>

@@ -452,6 +452,10 @@ h1 {
   color: #0a8f44;
 }
 
+.order-empty-state.processing .empty-state-icon {
+  color: var(--gold-dark);
+}
+
 .empty-state-icon .icon {
   width: 30px;
   height: 30px;
@@ -459,7 +463,8 @@ h1 {
 
 .order-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: 20px;
   min-height: 0;
   overflow: hidden;
@@ -467,8 +472,9 @@ h1 {
 
 .queue-panel {
   display: grid;
-  overflow: hidden;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
   grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -505,9 +511,11 @@ h1 {
   overflow-y: auto;
 }
 
-.pending-grid {
+.pending-grid,
+.processing-grid,
+.complete-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
   padding: 14px;
 }
@@ -542,6 +550,14 @@ h1 {
 
 .order-tile.complete::before {
   background: var(--green);
+}
+
+.order-tile.processing::before {
+  background: #bf0909;
+}
+
+.order-tile.processing {
+  gap: 9px;
 }
 
 .order-tile.complete strong {
@@ -608,17 +624,16 @@ h1 {
   color: #6d5200;
 }
 
+.order-status-badge.processing {
+  border-color: #d56b62;
+  background: #ffe8e4;
+  color: #8a1f18;
+}
+
 .order-status-badge.complete {
   border-color: #35b86f;
   background: var(--green-soft);
   color: #17653a;
-}
-
-.complete-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(145px, 1fr));
-  gap: 12px;
-  padding: 14px;
 }
 
 .check-ring {
@@ -661,8 +676,9 @@ h1 {
 
 @media (max-width: 1360px) {
   .pending-grid,
+  .processing-grid,
   .complete-grid {
-    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   }
 }
 
@@ -679,6 +695,19 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  .site-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .site-header {
     min-height: 54px;
   }
@@ -697,7 +726,11 @@ h1 {
   }
 
   .controller-page {
+    height: auto;
+    min-height: 0;
+    grid-template-rows: auto auto auto;
     gap: 10px;
+    overflow: visible;
     padding: 12px 12px 14px;
   }
 
@@ -755,8 +788,13 @@ h1 {
 
   .order-columns {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: repeat(3, auto);
     gap: 10px;
+    overflow: visible;
+  }
+
+  .queue-panel {
+    height: 360px;
   }
 
   .pending-grid,
