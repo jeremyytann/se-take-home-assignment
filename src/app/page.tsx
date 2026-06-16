@@ -1,37 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assignPendingOrdersToIdleBots,
   BotStatus,
+  createInitialOrderControllerState,
   CustomerType,
   OrderStatus,
   completeProcessingOrders,
   enqueuePendingOrder,
+  ORDER_CONTROLLER_STORAGE_KEY,
   removeNewestBot,
+  restoreOrderControllerState,
+  serializeOrderControllerState,
   type Bot,
   type BotsByStatus,
-  type OrdersByStatus,
-  type PendingOrder
+  type OrderControllerState,
+  type OrdersByStatus
 } from "@/domain";
-
-const INITIAL_ORDER_ID = 1;
-
-type OrdersPageState = {
-  bots: BotsByStatus;
-  orders: OrdersByStatus;
-  nextOrderId: number;
-  nextBotId: number;
-  currentTime: number;
-};
-
-function emptyBots(): BotsByStatus {
-  return {
-    [BotStatus.Idle]: [],
-    [BotStatus.Processing]: []
-  };
-}
 
 function formatOrderId(orderId: number): string {
   return orderId.toString().padStart(4, "0");
@@ -171,19 +158,40 @@ function EmptyOrderState({
 }
 
 export default function OrdersPage() {
-  const [orderState, setOrderState] = useState<OrdersPageState>(() => ({
-    bots: emptyBots(),
-    orders: {
-      [OrderStatus.Pending]: [],
-      [OrderStatus.Processing]: [],
-      [OrderStatus.Complete]: []
-    },
-    nextOrderId: INITIAL_ORDER_ID,
-    nextBotId: 1,
-    currentTime: Date.now()
-  }));
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const lastSavedState = useRef<string | null>(null);
+  const [orderState, setOrderState] = useState<OrderControllerState>(() =>
+    createInitialOrderControllerState()
+  );
 
   useEffect(() => {
+    let isCancelled = false;
+
+    window.queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      const savedState = window.localStorage.getItem(
+        ORDER_CONTROLLER_STORAGE_KEY
+      );
+      const restoredState = restoreOrderControllerState(savedState);
+
+      lastSavedState.current = savedState;
+      setOrderState(restoredState);
+      setHasHydrated(true);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
       const completedAt = Date.now();
 
@@ -199,7 +207,22 @@ export default function OrdersPage() {
     }, 250);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [hasHydrated]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    const serializedState = serializeOrderControllerState(orderState);
+
+    if (serializedState === lastSavedState.current) {
+      return;
+    }
+
+    window.localStorage.setItem(ORDER_CONTROLLER_STORAGE_KEY, serializedState);
+    lastSavedState.current = serializedState;
+  }, [hasHydrated, orderState]);
 
   const botList = useMemo(
     () =>

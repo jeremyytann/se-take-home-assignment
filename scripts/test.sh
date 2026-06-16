@@ -7,6 +7,6 @@ set -euo pipefail
 echo "Running unit tests..."
 
 npx tsc --project tsconfig.test.json
-node --test .tmp/test/src/domain/assignment.test.js
+node --test .tmp/test/src/domain/*.test.js
 
 echo "Unit tests completed"

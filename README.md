@@ -64,7 +64,7 @@ You must implement **either** frontend or backend components as described below:
 - Complete the implementation as clean as possible, clean code is a strong plus point, do not bring in all the fancy tech stuff.
 
 ### Run Locally
-This prototype is a Next.js frontend application. It keeps all order and bot state in memory, so no database or external service setup is required.
+This prototype is a Next.js frontend application. It keeps order and bot state in browser `localStorage`, so refreshes preserve the current controller state without requiring a database or external service.
 
 #### Prerequisites
 - Node.js 20.9.0 or newer
@@ -134,15 +134,15 @@ The domain layer is intentionally framework-independent. It exposes pure transit
 - `completeProcessingOrders` completes orders whose 10-second processing window has elapsed, then immediately assigns any newly idle bots to the next pending orders.
 - `removeNewestBot` destroys the newest bot and requeues its interrupted order when that bot was processing.
 
-The page state keeps all prototype data in memory:
+The page state owns the active prototype data and persists its durable fields to browser `localStorage`:
 
 - `orders`: grouped by `PENDING`, `PROCESSING`, and `COMPLETE`.
 - `bots`: grouped by `IDLE` and `PROCESSING`.
 - `nextOrderId`: the next unique increasing order number.
 - `nextBotId`: the next unique increasing bot number.
-- `currentTime`: the UI clock used to render progress and remaining time.
+- `currentTime`: the UI clock used to render progress and remaining time. This field is not persisted; it is restored from the current browser time.
 
-No persistence is used. Refreshing the page resets the controller state.
+Refreshing the page restores pending, processing, and complete orders, active bots, and the next order/bot ids. Processing orders keep their absolute pickup and completion timestamps, so an order that finishes while the page is closed moves to `COMPLETE` as soon as the saved state is restored.
 
 ### Order State Model
 Orders move through three explicit states defined in `src/domain/order.ts`.
