@@ -40,13 +40,32 @@ describe("order queue priority", () => {
   it("queues VIP orders behind existing VIP orders and before normal orders", () => {
     const queue = [
       pendingOrder(1, CustomerType.Vip),
+      pendingOrder(2, CustomerType.Delivery),
+      pendingOrder(3, CustomerType.Normal),
+      pendingOrder(4, CustomerType.Normal)
+    ];
+
+    const nextQueue = enqueuePendingOrder(
+      queue,
+      pendingOrder(5, CustomerType.Vip)
+    );
+
+    assert.deepEqual(
+      nextQueue.map((order) => order.id),
+      [1, 5, 2, 3, 4]
+    );
+  });
+
+  it("queues delivery orders behind VIP orders and before normal orders", () => {
+    const queue = [
+      pendingOrder(1, CustomerType.Vip),
       pendingOrder(2, CustomerType.Normal),
       pendingOrder(3, CustomerType.Normal)
     ];
 
     const nextQueue = enqueuePendingOrder(
       queue,
-      pendingOrder(4, CustomerType.Vip)
+      pendingOrder(4, CustomerType.Delivery)
     );
 
     assert.deepEqual(
@@ -55,20 +74,39 @@ describe("order queue priority", () => {
     );
   });
 
-  it("queues normal orders after all existing pending orders", () => {
+  it("queues delivery orders behind existing delivery orders", () => {
     const queue = [
       pendingOrder(1, CustomerType.Vip),
-      pendingOrder(2, CustomerType.Normal)
+      pendingOrder(2, CustomerType.Delivery),
+      pendingOrder(3, CustomerType.Normal)
     ];
 
     const nextQueue = enqueuePendingOrder(
       queue,
-      pendingOrder(3, CustomerType.Normal)
+      pendingOrder(4, CustomerType.Delivery)
     );
 
     assert.deepEqual(
       nextQueue.map((order) => order.id),
-      [1, 2, 3]
+      [1, 2, 4, 3]
+    );
+  });
+
+  it("queues normal orders after all existing pending orders", () => {
+    const queue = [
+      pendingOrder(1, CustomerType.Vip),
+      pendingOrder(2, CustomerType.Delivery),
+      pendingOrder(3, CustomerType.Normal)
+    ];
+
+    const nextQueue = enqueuePendingOrder(
+      queue,
+      pendingOrder(4, CustomerType.Normal)
+    );
+
+    assert.deepEqual(
+      nextQueue.map((order) => order.id),
+      [1, 2, 3, 4]
     );
   });
 });
@@ -267,7 +305,8 @@ describe("bot removal", () => {
       orders: {
         [OrderStatus.Pending]: [
           pendingOrder(1, CustomerType.Vip, 10),
-          pendingOrder(2, CustomerType.Normal, 20)
+          pendingOrder(2, CustomerType.Delivery, 20),
+          pendingOrder(4, CustomerType.Normal, 40)
         ],
         [OrderStatus.Processing]: [interruptedOrder],
         [OrderStatus.Complete]: []
@@ -287,7 +326,8 @@ describe("bot removal", () => {
       [
         [1, CustomerType.Vip, OrderStatus.Pending],
         [3, CustomerType.Vip, OrderStatus.Pending],
-        [2, CustomerType.Normal, OrderStatus.Pending]
+        [2, CustomerType.Delivery, OrderStatus.Pending],
+        [4, CustomerType.Normal, OrderStatus.Pending]
       ]
     );
     assert.deepEqual(result.orders[OrderStatus.Processing], []);
@@ -324,6 +364,57 @@ describe("bot removal", () => {
         [OrderStatus.Pending]: [
           pendingOrder(1, CustomerType.Vip, 10),
           pendingOrder(4, CustomerType.Vip, 40),
+          pendingOrder(5, CustomerType.Delivery, 50),
+          pendingOrder(3, CustomerType.Normal, 30)
+        ],
+        [OrderStatus.Processing]: [interruptedOrder],
+        [OrderStatus.Complete]: []
+      }
+    });
+
+    assert.deepEqual(
+      result.orders[OrderStatus.Pending].map((order) => order.id),
+      [1, 2, 4, 5, 3]
+    );
+    assert.deepEqual(result.orders[OrderStatus.Pending][1], {
+      id: 2,
+      customerType: CustomerType.Vip,
+      status: OrderStatus.Pending,
+      createdAt: 20
+    });
+  });
+
+  it("returns an interrupted delivery order after VIP orders and before normal orders", () => {
+    const pickedUpAt = 1_000;
+    const completesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
+    const interruptedOrder = {
+      id: 2,
+      customerType: CustomerType.Delivery,
+      status: OrderStatus.Processing,
+      createdAt: 20,
+      pickedUpAt,
+      completesAt,
+      botId: 1
+    } as const;
+
+    const result = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [],
+        [BotStatus.Processing]: [
+          {
+            id: 1,
+            status: BotStatus.Processing,
+            createdAt: 10,
+            orderId: interruptedOrder.id,
+            pickedUpAt,
+            completesAt
+          }
+        ]
+      },
+      orders: {
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Vip, 10),
+          pendingOrder(4, CustomerType.Delivery, 40),
           pendingOrder(3, CustomerType.Normal, 30)
         ],
         [OrderStatus.Processing]: [interruptedOrder],
@@ -337,13 +428,13 @@ describe("bot removal", () => {
     );
     assert.deepEqual(result.orders[OrderStatus.Pending][1], {
       id: 2,
-      customerType: CustomerType.Vip,
+      customerType: CustomerType.Delivery,
       status: OrderStatus.Pending,
       createdAt: 20
     });
   });
 
-  it("returns an interrupted normal order after VIP orders and before later normal orders", () => {
+  it("returns an interrupted normal order after VIP and delivery orders and before later normal orders", () => {
     const pickedUpAt = 1_000;
     const completesAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
     const interruptedOrder = {
@@ -373,6 +464,7 @@ describe("bot removal", () => {
       orders: {
         [OrderStatus.Pending]: [
           pendingOrder(3, CustomerType.Vip, 30),
+          pendingOrder(6, CustomerType.Delivery, 60),
           pendingOrder(4, CustomerType.Normal, 40),
           pendingOrder(5, CustomerType.Normal, 50)
         ],
@@ -383,9 +475,9 @@ describe("bot removal", () => {
 
     assert.deepEqual(
       result.orders[OrderStatus.Pending].map((order) => order.id),
-      [3, 2, 4, 5]
+      [3, 6, 2, 4, 5]
     );
-    assert.deepEqual(result.orders[OrderStatus.Pending][1], {
+    assert.deepEqual(result.orders[OrderStatus.Pending][2], {
       id: 2,
       customerType: CustomerType.Normal,
       status: OrderStatus.Pending,

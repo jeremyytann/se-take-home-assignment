@@ -42,14 +42,20 @@ function formatBotId(botId: number): string {
 }
 
 function formatCustomerType(customerType: CustomerType): string {
-  return customerType === CustomerType.Vip ? "VIP" : "Normal";
+  if (customerType === CustomerType.Vip) {
+    return "VIP";
+  }
+
+  if (customerType === CustomerType.Delivery) {
+    return "Delivery";
+  }
+
+  return "Normal";
 }
 
 function CustomerTypeBadge({ customerType }: { customerType: CustomerType }) {
-  const isVip = customerType === CustomerType.Vip;
-
   return (
-    <span className={`customer-type-badge ${isVip ? "vip" : "normal"}`}>
+    <span className={`customer-type-badge ${customerType.toLowerCase()}`}>
       {formatCustomerType(customerType)}
     </span>
   );
@@ -110,6 +116,18 @@ function StarIcon() {
   return (
     <svg aria-hidden="true" className="icon icon-fill" viewBox="0 0 24 24">
       <path d="m12 2 2.9 6 6.6 1-4.8 4.7 1.1 6.6L12 17.2l-5.8 3.1 1.1-6.6L2.5 9l6.6-1L12 2Z" />
+    </svg>
+  );
+}
+
+function DeliveryIcon() {
+  return (
+    <svg aria-hidden="true" className="icon" viewBox="0 0 24 24">
+      <path d="M4 7h10v10H4z" />
+      <path d="M14 10h3l3 3v4h-6z" />
+      <path d="M7 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+      <path d="M17 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+      <path d="M7 11h4" />
     </svg>
   );
 }
@@ -321,6 +339,9 @@ export default function OrdersPage() {
           <strong>
             #{formatOrderId(bot.orderId)}
             {order?.customerType === CustomerType.Vip ? <StarIcon /> : null}
+            {order?.customerType === CustomerType.Delivery ? (
+              <DeliveryIcon />
+            ) : null}
           </strong>
         </div>
         <div className="progress-track" aria-hidden="true">
@@ -352,6 +373,14 @@ export default function OrdersPage() {
             >
               <CartIcon />
               New Normal Order
+            </button>
+            <button
+              className="control-button delivery-order"
+              type="button"
+              onClick={() => createOrder(CustomerType.Delivery)}
+            >
+              <DeliveryIcon />
+              New Delivery Order
             </button>
             <button
               className="control-button vip-order"
@@ -447,9 +476,7 @@ export default function OrdersPage() {
               <div className="pending-grid">
                 {currentPendingOrders.map((order) => (
                   <article
-                    className={`order-tile ${
-                      order.customerType === CustomerType.Vip ? "vip" : "normal"
-                    }`}
+                    className={`order-tile ${order.customerType.toLowerCase()}`}
                     key={order.id}
                   >
                     <span className="order-label">Order</span>
@@ -496,9 +523,7 @@ export default function OrdersPage() {
               <div className="complete-grid">
                 {currentCompletedOrders.map((order) => (
                   <article
-                    className={`order-tile complete ${
-                      order.customerType === CustomerType.Vip ? "vip" : "normal"
-                    }`}
+                    className={`order-tile complete ${order.customerType.toLowerCase()}`}
                     key={order.id}
                   >
                     <span className="order-label">Order</span>

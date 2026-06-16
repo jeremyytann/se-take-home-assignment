@@ -194,6 +194,17 @@ h1 {
   background: #f3bd20;
 }
 
+.delivery-order {
+  min-width: 226px;
+  border-color: #7d8c5a;
+  background: #e6edcf;
+  color: #37431d;
+}
+
+.delivery-order:hover {
+  background: #dbe6bd;
+}
+
 .remove-bot,
 .add-bot {
   min-width: 98px;
@@ -540,6 +551,14 @@ h1 {
   background: var(--gold);
 }
 
+.order-tile.delivery {
+  background: #f4f8e8;
+}
+
+.order-tile.delivery::before {
+  background: #7d8c5a;
+}
+
 .order-tile.complete::before {
   background: var(--green);
 }
@@ -596,6 +615,12 @@ h1 {
   border-color: #d7a200;
   background: #fff3bd;
   color: #6d5200;
+}
+
+.customer-type-badge.delivery {
+  border-color: #7d8c5a;
+  background: #edf4d8;
+  color: #37431d;
 }
 
 .customer-type-badge.normal {
@@ -725,9 +750,14 @@ h1 {
   .control-button,
   .normal-order,
   .vip-order,
+  .delivery-order,
   .remove-bot,
   .add-bot {
     min-width: 0;
+  }
+
+  .vip-order {
+    grid-column: 1 / -1;
   }
 
   .order-actions .control-button,

@@ -19,11 +19,12 @@ As below is part of the user story:
 ### Requirements
 1. When "New Normal Order" clicked, a new order should show up "PENDING" Area.
 2. When "New VIP Order" clicked, a new order should show up in "PENDING" Area. It should place in-front of all existing "Normal" order but behind of all existing "VIP" order.
-3. The order number should be unique and increasing.
-4. When "+ Bot" clicked, a bot should be created and start processing the order inside "PENDING" area. after 10 seconds picking up the order, the order should move to "COMPLETE" area. Then the bot should start processing another order if there is any left in "PENDING" area.
-5. If there is no more order in the "PENDING" area, the bot should become IDLE until a new order come in.
-6. When "- Bot" clicked, the newest bot should be destroyed. If the bot is processing an order, it should also stop the process. The order should return to its original position in the "PENDING" area (maintaining VIP/Normal order priority).
-7. No data persistance is needed for this prototype, you may perform all the process inside memory.
+3. When "New Delivery Order" clicked, a new order should show up in "PENDING" Area. It should place behind all existing "VIP" orders and before all existing "Normal" orders.
+4. The order number should be unique and increasing.
+5. When "+ Bot" clicked, a bot should be created and start processing the order inside "PENDING" area. after 10 seconds picking up the order, the order should move to "COMPLETE" area. Then the bot should start processing another order if there is any left in "PENDING" area.
+6. If there is no more order in the "PENDING" area, the bot should become IDLE until a new order come in.
+7. When "- Bot" clicked, the newest bot should be destroyed. If the bot is processing an order, it should also stop the process. The order should return to its original position in the "PENDING" area (maintaining VIP/Delivery/Normal order priority).
+8. No data persistance is needed for this prototype, you may perform all the process inside memory.
 
 ### Functioning Prototype
 You must implement **either** frontend or backend components as described below:
@@ -89,7 +90,7 @@ npm run dev
 http://localhost:3000
 ```
 
-Use the `New Normal Order`, `New VIP Order`, `+ Bot`, and `- Bot` controls to exercise the order flow locally.
+Use the `New Normal Order`, `New VIP Order`, `New Delivery Order`, `+ Bot`, and `- Bot` controls to exercise the order flow locally.
 
 #### Verification Commands
 Run the domain unit tests:
@@ -150,7 +151,7 @@ Orders move through three explicit states defined in `src/domain/order.ts`.
 #### Pending
 `PENDING` orders are accepted orders that have not been picked up by a bot yet. This is the visible pending queue in the UI.
 
-Normal orders are appended to the end of the queue. VIP orders are inserted after existing VIP orders and before the first normal order, so VIP orders keep first-in-first-out order among themselves while still taking priority over normal orders.
+Pending orders are sorted by customer priority: VIP first, Delivery second, and Normal last. Orders within the same customer type keep first-in-first-out order by creation time and order id.
 
 When a new order is created, the UI first enqueues it as pending and then calls `assignPendingOrdersToIdleBots`. If an idle bot is already available, the order may immediately leave the pending queue and enter processing.
 
@@ -182,4 +183,4 @@ Bots have two states defined in `src/domain/bot.ts`: `IDLE` and `PROCESSING`.
 5. If more pending orders exist, the same transition immediately assigns the newly idle bot to the next order.
 6. When the user clicks `- Bot`, the newest bot is destroyed. "Newest" is selected by the latest `createdAt` timestamp, with the higher bot id used as a tie-breaker.
 7. If the destroyed bot was idle, it is simply removed.
-8. If the destroyed bot was processing, its order is removed from `PROCESSING` and requeued as `PENDING` using the same VIP/normal priority rules. Its previous pickup and completion timestamps are discarded, so the order gets a fresh 10-second processing window when another bot picks it up.
+8. If the destroyed bot was processing, its order is removed from `PROCESSING` and requeued as `PENDING` using the same VIP/Delivery/Normal priority rules. Its previous pickup and completion timestamps are discarded, so the order gets a fresh 10-second processing window when another bot picks it up.

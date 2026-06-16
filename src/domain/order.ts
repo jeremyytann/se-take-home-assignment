@@ -2,6 +2,7 @@ import type { BotId, OrderId, TimestampMs } from "./primitives";
 
 export enum CustomerType {
   Normal = "NORMAL",
+  Delivery = "DELIVERY",
   Vip = "VIP"
 }
 
@@ -58,29 +59,30 @@ export type NewOrderInput = {
 
 export type OrderQueue = PendingOrder[];
 
-export type CustomerPriority = CustomerType.Vip | CustomerType.Normal;
+export type CustomerPriority =
+  | CustomerType.Vip
+  | CustomerType.Delivery
+  | CustomerType.Normal;
+
+const CUSTOMER_PRIORITY_RANK: Record<CustomerType, number> = {
+  [CustomerType.Vip]: 0,
+  [CustomerType.Delivery]: 1,
+  [CustomerType.Normal]: 2
+};
 
 export function enqueuePendingOrder(
   queue: OrderQueue,
   order: PendingOrder
 ): OrderQueue {
-  if (order.customerType === CustomerType.Normal) {
-    return [...queue, order];
-  }
-
-  const nextNormalOrderIndex = queue.findIndex(
-    (queuedOrder) => queuedOrder.customerType === CustomerType.Normal
+  const insertIndex = queue.findIndex(
+    (queuedOrder) => comparePendingOrderPriority(order, queuedOrder) < 0
   );
 
-  if (nextNormalOrderIndex === -1) {
+  if (insertIndex === -1) {
     return [...queue, order];
   }
 
-  return [
-    ...queue.slice(0, nextNormalOrderIndex),
-    order,
-    ...queue.slice(nextNormalOrderIndex)
-  ];
+  return [...queue.slice(0, insertIndex), order, ...queue.slice(insertIndex)];
 }
 
 function comparePendingOrderPriority(
@@ -88,7 +90,10 @@ function comparePendingOrderPriority(
   secondOrder: PendingOrder
 ): number {
   if (firstOrder.customerType !== secondOrder.customerType) {
-    return firstOrder.customerType === CustomerType.Vip ? -1 : 1;
+    return (
+      CUSTOMER_PRIORITY_RANK[firstOrder.customerType] -
+      CUSTOMER_PRIORITY_RANK[secondOrder.customerType]
+    );
   }
 
   if (firstOrder.createdAt !== secondOrder.createdAt) {
