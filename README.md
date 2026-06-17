@@ -161,11 +161,12 @@ When a new order is created, the UI first enqueues it as pending and then calls 
 - when it was created;
 - when the bot picked it up;
 - when it is scheduled to complete;
+- how much processing time was already completed before the current pickup;
 - which bot is processing it.
 
 Processing orders are not shown as a separate order column. Instead, the active bot card shows the order it is preparing, the remaining time, and a progress bar.
 
-Normal bots process orders in 10 seconds (`ORDER_PROCESSING_TIME_MS`). Fast bots process orders in 5 seconds (`FAST_ORDER_PROCESSING_TIME_MS`). The React page runs a 250ms interval that calls `completeProcessingOrders` with the current time. An order only completes when `completesAt <= completedAt`.
+Normal bots process orders in 10 seconds (`ORDER_PROCESSING_TIME_MS`). Fast bots process orders in 5 seconds (`FAST_ORDER_PROCESSING_TIME_MS`). If an interrupted order is picked up again, its saved elapsed processing time is subtracted from the new bot's processing window. The React page runs a 250ms interval that calls `completeProcessingOrders` with the current time. An order only completes when `completesAt <= completedAt`.
 
 #### Complete
 `COMPLETE` orders are finished orders. When a processing order reaches its completion timestamp, it is moved into the complete list with its `completedAt` timestamp and the `botId` that finished it.
@@ -182,4 +183,4 @@ Bots have two states defined in `src/domain/bot.ts`: `IDLE` and `PROCESSING`.
 5. If more pending orders exist, the same transition immediately assigns the newly idle bot to the next order.
 6. When the user clicks `- Bot`, the newest bot is destroyed globally across normal and fast bots. "Newest" is selected by the latest `createdAt` timestamp, with the higher bot id used as a tie-breaker.
 7. If the destroyed bot was idle, it is simply removed.
-8. If the destroyed bot was processing, its order is removed from `PROCESSING` and requeued as `PENDING` using the same VIP/normal priority rules. Its previous pickup and completion timestamps are discarded, so the order gets a fresh processing window based on the next bot that picks it up.
+8. If the destroyed bot was processing, its order is removed from `PROCESSING` and requeued as `PENDING` using the same VIP/normal priority rules. The order keeps its accumulated `processingElapsedMs`, so the next bot continues from that saved progress instead of starting over.

@@ -16,6 +16,7 @@ export type PendingOrder = {
   customerType: CustomerType;
   status: OrderStatus.Pending;
   createdAt: TimestampMs;
+  processingElapsedMs?: TimestampMs;
 };
 
 export type ProcessingOrder = {
@@ -25,6 +26,7 @@ export type ProcessingOrder = {
   createdAt: TimestampMs;
   pickedUpAt: TimestampMs;
   completesAt: TimestampMs;
+  processingElapsedMs?: TimestampMs;
   botId: BotId;
 };
 

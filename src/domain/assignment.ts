@@ -41,6 +41,7 @@ export type CompleteProcessingOrdersResult = AssignPendingOrdersResult;
 export type RemoveNewestBotInput = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
+  removedAt: TimestampMs;
 };
 
 export type RemoveNewestBotResult = AssignPendingOrdersResult;
@@ -63,14 +64,20 @@ export function assignPendingOrdersToIdleBots({
   const assignedOrders = orders[OrderStatus.Pending].slice(0, assignmentCount);
 
   const processingBots: ProcessingBot[] = assignedBots.map((bot, index) => {
-    const completesAt = pickedUpAt + getBotProcessingTimeMs(bot);
+    const processingElapsedMs = assignedOrders[index].processingElapsedMs ?? 0;
+    const remainingProcessingTimeMs = Math.max(
+      0,
+      getBotProcessingTimeMs(bot) - processingElapsedMs
+    );
+    const completesAt = pickedUpAt + remainingProcessingTimeMs;
 
     return {
       ...bot,
       status: BotStatus.Processing,
       orderId: assignedOrders[index].id,
       pickedUpAt,
-      completesAt
+      completesAt,
+      ...(processingElapsedMs > 0 ? { processingElapsedMs } : {})
     };
   });
 
@@ -80,6 +87,9 @@ export function assignPendingOrdersToIdleBots({
       status: OrderStatus.Processing,
       pickedUpAt,
       completesAt: processingBots[index].completesAt,
+      ...(order.processingElapsedMs
+        ? { processingElapsedMs: order.processingElapsedMs }
+        : {}),
       botId: assignedBots[index].id
     })
   );
@@ -167,7 +177,8 @@ export function getBotProcessingTimeMs(bot: Bot): TimestampMs {
 
 export function removeNewestBot({
   bots,
-  orders
+  orders,
+  removedAt
 }: RemoveNewestBotInput): RemoveNewestBotResult {
   const newestBot = [
     ...bots[BotStatus.Idle],
@@ -217,7 +228,10 @@ export function removeNewestBot({
         id: interruptedOrder.id,
         customerType: interruptedOrder.customerType,
         status: OrderStatus.Pending,
-        createdAt: interruptedOrder.createdAt
+        createdAt: interruptedOrder.createdAt,
+        processingElapsedMs:
+          (interruptedOrder.processingElapsedMs ?? 0) +
+          Math.max(0, removedAt - interruptedOrder.pickedUpAt)
       } satisfies PendingOrder)
     : orders[OrderStatus.Pending];
 

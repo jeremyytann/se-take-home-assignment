@@ -25,6 +25,7 @@ export type ProcessingBot = {
   orderId: OrderId;
   pickedUpAt: TimestampMs;
   completesAt: TimestampMs;
+  processingElapsedMs?: TimestampMs;
 };
 
 export type Bot = IdleBot | ProcessingBot;

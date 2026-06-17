@@ -85,9 +85,10 @@ function formatRemainingTime(completesAt: number, currentTime: number): string {
 function getProgress(
   pickedUpAt: number,
   completesAt: number,
-  currentTime: number
+  currentTime: number,
+  processingElapsedMs = 0
 ): number {
-  const duration = completesAt - pickedUpAt;
+  const duration = completesAt - pickedUpAt + processingElapsedMs;
 
   if (duration <= 0) {
     return 100;
@@ -95,7 +96,10 @@ function getProgress(
 
   return Math.min(
     100,
-    Math.max(0, ((currentTime - pickedUpAt) / duration) * 100)
+    Math.max(
+      0,
+      ((currentTime - pickedUpAt + processingElapsedMs) / duration) * 100
+    )
   );
 }
 
@@ -296,7 +300,8 @@ export default function OrdersPage() {
       ...state,
       ...removeNewestBot({
         bots: state.bots,
-        orders: state.orders
+        orders: state.orders,
+        removedAt
       }),
       currentTime: removedAt
     }));
@@ -335,7 +340,8 @@ export default function OrdersPage() {
               width: `${getProgress(
                 bot.pickedUpAt,
                 bot.completesAt,
-                orderState.currentTime
+                orderState.currentTime,
+                bot.processingElapsedMs
               )}%`
             }}
           />
