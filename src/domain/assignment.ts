@@ -1,5 +1,7 @@
 import {
   BotStatus,
+  BotType,
+  type Bot,
   type BotsByStatus,
   type IdleBot,
   type ProcessingBot
@@ -15,12 +17,12 @@ import {
 import type { TimestampMs } from "./primitives";
 
 export const ORDER_PROCESSING_TIME_MS = 10_000;
+export const FAST_ORDER_PROCESSING_TIME_MS = 5_000;
 
 export type AssignPendingOrdersInput = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
   pickedUpAt: TimestampMs;
-  processingTimeMs?: TimestampMs;
 };
 
 export type AssignPendingOrdersResult = {
@@ -32,7 +34,6 @@ export type CompleteProcessingOrdersInput = {
   bots: BotsByStatus;
   orders: OrdersByStatus;
   completedAt: TimestampMs;
-  processingTimeMs?: TimestampMs;
 };
 
 export type CompleteProcessingOrdersResult = AssignPendingOrdersResult;
@@ -47,8 +48,7 @@ export type RemoveNewestBotResult = AssignPendingOrdersResult;
 export function assignPendingOrdersToIdleBots({
   bots,
   orders,
-  pickedUpAt,
-  processingTimeMs = ORDER_PROCESSING_TIME_MS
+  pickedUpAt
 }: AssignPendingOrdersInput): AssignPendingOrdersResult {
   const assignmentCount = Math.min(
     bots[BotStatus.Idle].length,
@@ -59,24 +59,27 @@ export function assignPendingOrdersToIdleBots({
     return { bots, orders };
   }
 
-  const completesAt = pickedUpAt + processingTimeMs;
   const assignedBots = bots[BotStatus.Idle].slice(0, assignmentCount);
   const assignedOrders = orders[OrderStatus.Pending].slice(0, assignmentCount);
 
-  const processingBots: ProcessingBot[] = assignedBots.map((bot, index) => ({
-    ...bot,
-    status: BotStatus.Processing,
-    orderId: assignedOrders[index].id,
-    pickedUpAt,
-    completesAt
-  }));
+  const processingBots: ProcessingBot[] = assignedBots.map((bot, index) => {
+    const completesAt = pickedUpAt + getBotProcessingTimeMs(bot);
+
+    return {
+      ...bot,
+      status: BotStatus.Processing,
+      orderId: assignedOrders[index].id,
+      pickedUpAt,
+      completesAt
+    };
+  });
 
   const processingOrders: ProcessingOrder[] = assignedOrders.map(
     (order, index) => ({
       ...order,
       status: OrderStatus.Processing,
       pickedUpAt,
-      completesAt,
+      completesAt: processingBots[index].completesAt,
       botId: assignedBots[index].id
     })
   );
@@ -100,8 +103,7 @@ export function assignPendingOrdersToIdleBots({
 export function completeProcessingOrders({
   bots,
   orders,
-  completedAt,
-  processingTimeMs
+  completedAt
 }: CompleteProcessingOrdersInput): CompleteProcessingOrdersResult {
   const completedOrders = orders[OrderStatus.Processing].filter(
     (order) => order.completesAt <= completedAt
@@ -111,8 +113,7 @@ export function completeProcessingOrders({
     return assignPendingOrdersToIdleBots({
       bots,
       orders,
-      pickedUpAt: completedAt,
-      processingTimeMs
+      pickedUpAt: completedAt
     });
   }
 
@@ -122,6 +123,7 @@ export function completeProcessingOrders({
     .filter((bot) => completedOrderIds.has(bot.orderId))
     .map((bot) => ({
       id: bot.id,
+      type: bot.type,
       status: BotStatus.Idle,
       createdAt: bot.createdAt
     }));
@@ -153,9 +155,14 @@ export function completeProcessingOrders({
       )
     },
     orders: nextOrders,
-    pickedUpAt: completedAt,
-    processingTimeMs
+    pickedUpAt: completedAt
   });
+}
+
+export function getBotProcessingTimeMs(bot: Bot): TimestampMs {
+  return bot.type === BotType.Fast
+    ? FAST_ORDER_PROCESSING_TIME_MS
+    : ORDER_PROCESSING_TIME_MS;
 }
 
 export function removeNewestBot({

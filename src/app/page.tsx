@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   assignPendingOrdersToIdleBots,
   BotStatus,
+  BotType,
   CustomerType,
   OrderStatus,
   completeProcessingOrders,
@@ -39,6 +40,10 @@ function formatOrderId(orderId: number): string {
 
 function formatBotId(botId: number): string {
   return `BOT-${botId.toString().padStart(2, "0")}`;
+}
+
+function formatBotType(botType: BotType): string {
+  return botType === BotType.Fast ? "Fast" : "Normal";
 }
 
 function formatCustomerType(customerType: CustomerType): string {
@@ -254,7 +259,7 @@ export default function OrdersPage() {
     });
   }
 
-  function addBot() {
+  function addBot(type: BotType) {
     const createdAt = Date.now();
 
     setOrderState((state) => {
@@ -264,6 +269,7 @@ export default function OrdersPage() {
           ...state.bots[BotStatus.Idle],
           {
             id: state.nextBotId,
+            type,
             status: BotStatus.Idle,
             createdAt
           }
@@ -377,10 +383,18 @@ export default function OrdersPage() {
           <button
             className="control-button add-bot"
             type="button"
-            onClick={addBot}
+            onClick={() => addBot(BotType.Normal)}
           >
             <span aria-hidden="true">+</span>
-            Bot
+            Normal Bot
+          </button>
+          <button
+            className="control-button add-bot fast-bot"
+            type="button"
+            onClick={() => addBot(BotType.Fast)}
+          >
+            <span aria-hidden="true">+</span>
+            Fast Bot
           </button>
         </div>
       </section>
@@ -408,13 +422,20 @@ export default function OrdersPage() {
                       <BotIcon />
                       <span>{formatBotId(bot.id)}</span>
                     </div>
-                    <span
-                      className={`status-badge ${
-                        bot.status === BotStatus.Idle ? "idle" : "processing"
-                      }`}
-                    >
-                      {formatOrderStatus(bot.status)}
-                    </span>
+                    <div className="bot-badges">
+                      <span
+                        className={`bot-type-badge ${bot.type.toLowerCase()}`}
+                      >
+                        {formatBotType(bot.type)}
+                      </span>
+                      <span
+                        className={`status-badge ${
+                          bot.status === BotStatus.Idle ? "idle" : "processing"
+                        }`}
+                      >
+                        {formatOrderStatus(bot.status)}
+                      </span>
+                    </div>
                   </div>
                   {renderBotWork(bot)}
                 </article>

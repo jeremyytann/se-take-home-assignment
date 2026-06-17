@@ -5,14 +5,21 @@ export enum BotStatus {
   Processing = "PROCESSING"
 }
 
+export enum BotType {
+  Normal = "NORMAL",
+  Fast = "FAST"
+}
+
 export type IdleBot = {
   id: BotId;
+  type: BotType;
   status: BotStatus.Idle;
   createdAt: TimestampMs;
 };
 
 export type ProcessingBot = {
   id: BotId;
+  type: BotType;
   status: BotStatus.Processing;
   createdAt: TimestampMs;
   orderId: OrderId;
@@ -33,5 +40,6 @@ export type BotsByStatus = {
 };
 
 export type NewBotInput = {
+  type: BotType;
   createdAt: TimestampMs;
 };

@@ -4,15 +4,19 @@ import { describe, it } from "node:test";
 import {
   assignPendingOrdersToIdleBots,
   BotStatus,
+  BotType,
   completeProcessingOrders,
   CustomerType,
   enqueuePendingOrder,
+  FAST_ORDER_PROCESSING_TIME_MS,
   ORDER_PROCESSING_TIME_MS,
   OrderStatus,
   removeNewestBot,
   type BotsByStatus,
+  type IdleBot,
   type OrdersByStatus,
-  type PendingOrder
+  type PendingOrder,
+  type ProcessingBot
 } from ".";
 
 function pendingOrder(
@@ -25,6 +29,41 @@ function pendingOrder(
     customerType,
     status: OrderStatus.Pending,
     createdAt
+  };
+}
+
+function idleBot(id: number, createdAt = id, type = BotType.Normal): IdleBot {
+  return {
+    id,
+    type,
+    status: BotStatus.Idle,
+    createdAt
+  };
+}
+
+function processingBot({
+  id,
+  orderId,
+  pickedUpAt,
+  completesAt,
+  createdAt = id,
+  type = BotType.Normal
+}: {
+  id: number;
+  orderId: number;
+  pickedUpAt: number;
+  completesAt: number;
+  createdAt?: number;
+  type?: BotType;
+}): ProcessingBot {
+  return {
+    id,
+    type,
+    status: BotStatus.Processing,
+    createdAt,
+    orderId,
+    pickedUpAt,
+    completesAt
   };
 }
 
@@ -78,7 +117,7 @@ describe("bot assignment", () => {
     const pickedUpAt = 1_000;
     const result = assignPendingOrdersToIdleBots({
       bots: {
-        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Idle]: [idleBot(1, 10)],
         [BotStatus.Processing]: []
       },
       orders: {
@@ -93,6 +132,7 @@ describe("bot assignment", () => {
     assert.deepEqual(result.bots[BotStatus.Processing], [
       {
         id: 1,
+        type: BotType.Normal,
         status: BotStatus.Processing,
         createdAt: 10,
         orderId: 1,
@@ -112,6 +152,66 @@ describe("bot assignment", () => {
       }
     ]);
   });
+
+  it("assigns fast bots with a 5 second processing window", () => {
+    const pickedUpAt = 1_000;
+    const result = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [idleBot(1, 10, BotType.Fast)],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+
+    assert.equal(
+      result.bots[BotStatus.Processing][0].completesAt,
+      pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS
+    );
+    assert.equal(
+      result.orders[OrderStatus.Processing][0].completesAt,
+      pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS
+    );
+  });
+
+  it("assigns mixed bot types with their own processing windows", () => {
+    const pickedUpAt = 1_000;
+    const result = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [
+          idleBot(1, 10, BotType.Normal),
+          idleBot(2, 20, BotType.Fast)
+        ],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Normal, 100),
+          pendingOrder(2, CustomerType.Normal, 200)
+        ]
+      },
+      pickedUpAt
+    });
+
+    assert.deepEqual(
+      result.bots[BotStatus.Processing].map((bot) => bot.completesAt),
+      [
+        pickedUpAt + ORDER_PROCESSING_TIME_MS,
+        pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS
+      ]
+    );
+    assert.deepEqual(
+      result.orders[OrderStatus.Processing].map((order) => order.completesAt),
+      [
+        pickedUpAt + ORDER_PROCESSING_TIME_MS,
+        pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS
+      ]
+    );
+  });
 });
 
 describe("order completion", () => {
@@ -119,7 +219,7 @@ describe("order completion", () => {
     const pickedUpAt = 2_000;
     const assigned = assignPendingOrdersToIdleBots({
       bots: {
-        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Idle]: [idleBot(1, 10)],
         [BotStatus.Processing]: []
       },
       orders: {
@@ -155,8 +255,50 @@ describe("order completion", () => {
         botId: 1
       }
     ]);
+    assert.deepEqual(completed.bots[BotStatus.Idle], [idleBot(1, 10)]);
+  });
+
+  it("does not complete a fast bot before 5 seconds and completes at 5 seconds", () => {
+    const pickedUpAt = 2_000;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [idleBot(1, 10, BotType.Fast)],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [pendingOrder(1, CustomerType.Normal, 100)]
+      },
+      pickedUpAt
+    });
+
+    const tooEarly = completeProcessingOrders({
+      ...assigned,
+      completedAt: pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS - 1
+    });
+
+    assert.equal(tooEarly.orders[OrderStatus.Complete].length, 0);
+    assert.equal(tooEarly.orders[OrderStatus.Processing].length, 1);
+
+    const completed = completeProcessingOrders({
+      ...tooEarly,
+      completedAt: pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS
+    });
+
+    assert.deepEqual(completed.orders[OrderStatus.Processing], []);
+    assert.deepEqual(completed.orders[OrderStatus.Complete], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Complete,
+        createdAt: 100,
+        pickedUpAt,
+        completedAt: pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
     assert.deepEqual(completed.bots[BotStatus.Idle], [
-      { id: 1, status: BotStatus.Idle, createdAt: 10 }
+      idleBot(1, 10, BotType.Fast)
     ]);
   });
 
@@ -165,7 +307,7 @@ describe("order completion", () => {
     const completedAt = pickedUpAt + ORDER_PROCESSING_TIME_MS;
     const assigned = assignPendingOrdersToIdleBots({
       bots: {
-        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Idle]: [idleBot(1, 10)],
         [BotStatus.Processing]: []
       },
       orders: {
@@ -208,6 +350,7 @@ describe("order completion", () => {
     assert.deepEqual(result.bots[BotStatus.Processing], [
       {
         id: 1,
+        type: BotType.Normal,
         status: BotStatus.Processing,
         createdAt: 10,
         orderId: 2,
@@ -216,25 +359,91 @@ describe("order completion", () => {
       }
     ]);
   });
+
+  it("starts the next fast bot order from the completion timestamp with another 5 second window", () => {
+    const pickedUpAt = 2_000;
+    const completedAt = pickedUpAt + FAST_ORDER_PROCESSING_TIME_MS;
+    const assigned = assignPendingOrdersToIdleBots({
+      bots: {
+        [BotStatus.Idle]: [idleBot(1, 10, BotType.Fast)],
+        [BotStatus.Processing]: []
+      },
+      orders: {
+        ...emptyOrders(),
+        [OrderStatus.Pending]: [
+          pendingOrder(1, CustomerType.Normal, 100),
+          pendingOrder(2, CustomerType.Normal, 200)
+        ]
+      },
+      pickedUpAt
+    });
+
+    const result = completeProcessingOrders({
+      ...assigned,
+      completedAt
+    });
+
+    assert.deepEqual(result.orders[OrderStatus.Complete], [
+      {
+        id: 1,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Complete,
+        createdAt: 100,
+        pickedUpAt,
+        completedAt,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(result.orders[OrderStatus.Processing], [
+      {
+        id: 2,
+        customerType: CustomerType.Normal,
+        status: OrderStatus.Processing,
+        createdAt: 200,
+        pickedUpAt: completedAt,
+        completesAt: completedAt + FAST_ORDER_PROCESSING_TIME_MS,
+        botId: 1
+      }
+    ]);
+    assert.deepEqual(result.bots[BotStatus.Processing], [
+      processingBot({
+        id: 1,
+        type: BotType.Fast,
+        createdAt: 10,
+        orderId: 2,
+        pickedUpAt: completedAt,
+        completesAt: completedAt + FAST_ORDER_PROCESSING_TIME_MS
+      })
+    ]);
+  });
 });
 
 describe("bot removal", () => {
   it("removes the newest idle bot", () => {
     const result = removeNewestBot({
       bots: {
-        [BotStatus.Idle]: [
-          { id: 1, status: BotStatus.Idle, createdAt: 10 },
-          { id: 2, status: BotStatus.Idle, createdAt: 20 }
-        ],
+        [BotStatus.Idle]: [idleBot(1, 10), idleBot(2, 20, BotType.Fast)],
+        [BotStatus.Processing]: []
+      },
+      orders: emptyOrders()
+    });
+
+    assert.deepEqual(result.bots[BotStatus.Idle], [idleBot(1, 10)]);
+    assert.deepEqual(result.bots[BotStatus.Processing], []);
+  });
+
+  it("removes the global newest idle bot regardless of type", () => {
+    const result = removeNewestBot({
+      bots: {
+        [BotStatus.Idle]: [idleBot(1, 30), idleBot(2, 20, BotType.Fast)],
         [BotStatus.Processing]: []
       },
       orders: emptyOrders()
     });
 
     assert.deepEqual(result.bots[BotStatus.Idle], [
-      { id: 1, status: BotStatus.Idle, createdAt: 10 }
+      idleBot(2, 20, BotType.Fast)
     ]);
-    assert.deepEqual(result.bots[BotStatus.Processing], []);
   });
 
   it("removes the newest processing bot and requeues its order by priority", () => {
@@ -252,16 +461,15 @@ describe("bot removal", () => {
 
     const result = removeNewestBot({
       bots: {
-        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Idle]: [idleBot(1, 10)],
         [BotStatus.Processing]: [
-          {
+          processingBot({
             id: 2,
-            status: BotStatus.Processing,
             createdAt: 20,
             orderId: 3,
             pickedUpAt,
             completesAt
-          }
+          })
         ]
       },
       orders: {
@@ -274,9 +482,7 @@ describe("bot removal", () => {
       }
     });
 
-    assert.deepEqual(result.bots[BotStatus.Idle], [
-      { id: 1, status: BotStatus.Idle, createdAt: 10 }
-    ]);
+    assert.deepEqual(result.bots[BotStatus.Idle], [idleBot(1, 10)]);
     assert.deepEqual(result.bots[BotStatus.Processing], []);
     assert.deepEqual(
       result.orders[OrderStatus.Pending].map((order) => [
@@ -310,14 +516,13 @@ describe("bot removal", () => {
       bots: {
         [BotStatus.Idle]: [],
         [BotStatus.Processing]: [
-          {
+          processingBot({
             id: 1,
-            status: BotStatus.Processing,
             createdAt: 10,
             orderId: interruptedOrder.id,
             pickedUpAt,
             completesAt
-          }
+          })
         ]
       },
       orders: {
@@ -360,14 +565,13 @@ describe("bot removal", () => {
       bots: {
         [BotStatus.Idle]: [],
         [BotStatus.Processing]: [
-          {
+          processingBot({
             id: 1,
-            status: BotStatus.Processing,
             createdAt: 10,
             orderId: interruptedOrder.id,
             pickedUpAt,
             completesAt
-          }
+          })
         ]
       },
       orders: {
@@ -408,16 +612,15 @@ describe("bot removal", () => {
 
     const removed = removeNewestBot({
       bots: {
-        [BotStatus.Idle]: [{ id: 1, status: BotStatus.Idle, createdAt: 10 }],
+        [BotStatus.Idle]: [idleBot(1, 10)],
         [BotStatus.Processing]: [
-          {
+          processingBot({
             id: 2,
-            status: BotStatus.Processing,
             createdAt: 20,
             orderId: interruptedOrder.id,
             pickedUpAt,
             completesAt: originalCompletesAt
-          }
+          })
         ]
       },
       orders: {
@@ -453,6 +656,7 @@ describe("bot removal", () => {
     assert.deepEqual(restarted.bots[BotStatus.Processing], [
       {
         id: 1,
+        type: BotType.Normal,
         status: BotStatus.Processing,
         createdAt: 10,
         orderId: 1,
